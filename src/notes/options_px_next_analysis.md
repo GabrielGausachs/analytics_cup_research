@@ -2,21 +2,6 @@
 
 ## Exploratory analysis
 
-# Barplot of runs and untargeted runs per subtype.
-Subtypes on the y axis, runs on the x axis.
-Show per90min.
-
-# Radar plot of teams where each metric is a subtype. (only untargeted)
-Subtypes on the suroundings.
-Keep radar values as percentiles (for visual impact). if at the 80th percentile, it means this team performs more of that type of run than 80% of the other teams in your dataset.
-Add the absolute number (per 90 min) below each label so your audience can see the real magnitude.
-
-# I also can do it for players. If I do it for the players, do the metrics compared on the players of the same position.
-
-# Percentage plot subtypes per phase (only untargeted)
-Subtypes y axis, phases x axis and show in percentage and also in size of the number or the circle surrounding the number the percentage. 
-Not per90min. use total runs.
-
 # Percentage of untargeted runs that lead to a goal/shot/cross/ball in the penalty area/the ball progresses a lot without losing it within the next 5-10 seconds
 
 # Video frame of an untargeted off ball run that made a space that someone occupied and in the end it lead to a goal.
