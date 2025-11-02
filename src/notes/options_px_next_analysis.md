@@ -2,7 +2,9 @@
 
 ## Exploratory analysis
 
-# Percentage of untargeted runs that lead to a goal/shot/cross/ball in the penalty area/the ball progresses a lot without losing it within the next 5-10 seconds
+# Percentage of untargeted runs that lead to change of phase
+
+# Percentage of run in behind untargeted runs that push the defensive line
 
 # Video frame of an untargeted off ball run that made a space that someone occupied and in the end it lead to a goal.
 This is the introduction video. To show the impact that that untargeted run had on the shot/goal.
