@@ -31,7 +31,7 @@ def plot_total_and_untargeted_per90(
     season: str = "2024/2025",
     competition: str = "Australian A-League",
     total_matches: int = 10,
-    title: str = "Off-Ball runs per 90 min by Subtype"
+    title: str = "Off-Ball runs per 90 min by RunType"
     ):
     """
     Plots horizontal bars of total off-ball events per 90 min per subtype,
@@ -177,7 +177,7 @@ def subtype_phase_bubble_plot(
     season: str = "2024/2025",
     competition: str = "Australian A-League",
     total_matches: int = 10,
-    title: str = "% Off-ball runs by Subtype and Phase"):
+    title: str = "% Off-ball runs by RunType and Phase"):
     """
     Plots off-ball runs per subtype per phase as a bubble plot. Adds insights text on the right of the figure.
 
