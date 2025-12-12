@@ -26,8 +26,6 @@ def off_ball_event_agg(dynamic_events_all: pd.DataFrame, group_by: List[str]) ->
     # Filter off-ball events
     off_ball_events = dynamic_events_all[dynamic_events_all["event_type_id"] == 1]
 
-    print("Nan values in 'targeted' column:", off_ball_events["targeted"].isna().sum())
-
     # Aggregate counts
     agg_df = (
         off_ball_events
