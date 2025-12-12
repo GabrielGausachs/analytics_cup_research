@@ -2,8 +2,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from mplsoccer import PyPizza, add_image, FontManager
 from highlight_text import fig_text
-from PIL import Image, ImageDraw, ImageFont
 import io
+import numpy as np
+from PIL import Image
 
 font_normal = FontManager('https://raw.githubusercontent.com/googlefonts/roboto/main/'
                           'src/hinted/Roboto-Regular.ttf')
@@ -130,7 +131,8 @@ def plot_total_and_untargeted_per90(
     # Line 2: main insight with bold numbers
     main_text = (
         rf"There are more than $\bf{{{int(avg_total_per_match)}}}$ off-ball runs per match on average, "
-        rf"of which $\bf{{{avg_untargeted_percent:.1f}}}\%$ are untargeted."
+        rf"of which $\bf{{{avg_untargeted_percent:.1f}}}\%$ are untargeted. They capture a large part of "
+        rf"players’ impact that conventional on-ball metrics miss."
     )
 
     ax_text.text(
@@ -263,6 +265,36 @@ def subtype_phase_bubble_plot(
     ax_text.axvline(x=0, color='black', linewidth=1)  # vertical separator
 
     # Insights
+
+    # Starting y position (top)
+    y_start = 0.95  
+    line_spacing = 0.08
+
+    # Line 1: title
+    ax_text.text(
+        0.05, y_start,
+        "INSIGHTS",
+        va="top",
+        ha="left",
+        fontsize=16,
+        color='black',
+        transform=ax_text.transAxes
+    )
+
+    # Line 2: main insight
+    main_text = "Off-ball runs are phase-dependent. Understading their impact in different phases is key."
+
+    ax_text.text(
+        0.05, y_start - line_spacing,
+        main_text,
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        wrap=True,
+        transform=ax_text.transAxes
+    )
+
     # Starting y position at the bottom
     y_bottom = 0.02
     line_spacing = 0.03
@@ -397,39 +429,12 @@ def radar_plot(
      #   ax_image = add_image(
      #       img, fig, left=0.1, bottom=0.9, width=0.13, height=0.127
      #   )   # these values might differ when you are plotting
-    
-    # add subtitle
-    fig.text(
-    0.515, 0.94,
-    "Percentile Rank vs A-league teams | Season 2024-25\n",
-    size=12,
-    ha="center", fontproperties=font_bold.prop, color="#000000"
-    )
 
-    # add text
-    fig.text(
-        0.39, 0.935, "Direct        Progression       Build up", size=12,
-        fontproperties=font_bold.prop, color="#000000"
-    )
-
-    # add rectangles
-    fig.patches.extend([
-        plt.Rectangle(
-            (0.37, 0.935), 0.01, 0.01, fill=True, color="#1a78cf",
-            transform=fig.transFigure, figure=fig
-        ),
-        plt.Rectangle(
-            (0.45, 0.935), 0.01, 0.01, fill=True, color="#ff9300",
-            transform=fig.transFigure, figure=fig
-        ),
-        plt.Rectangle(
-            (0.575, 0.935), 0.01, 0.01, fill=True, color="#d70232",
-            transform=fig.transFigure, figure=fig
-        ),
-    ])
+    fig.patch.set_facecolor("white")    # Figure background
+    ax.patch.set_facecolor("white")     # Axes background (if any)
 
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
     buf.seek(0)
     img = Image.open(buf)
     plt.close(fig)  # close the figure to free memory
@@ -442,7 +447,6 @@ def plot_multiple_radar_plots(
     df_pivot: pd.DataFrame,
     df_percentile: pd.DataFrame,
     teams_shortnames: list,
-    dpi: int = 150,
     season: str = "2024/2025",
     competition: str = "Australian A-League",
     total_matches: int = 10
@@ -454,23 +458,156 @@ def plot_multiple_radar_plots(
         df_pivot (pd.DataFrame): Pivoted DataFrame with off-ball runs per subtype per team per 90 minutes.
         df_percentile (pd.DataFrame): Percentile DataFrame with same shape as df_pivot.
         teams_shortnames (list): List of team shortnames to plot.
-        dpi (int): Resolution for the final figure.
         season (str): Season name for annotation.
         competition (str): Competition name for annotation.
         total_matches (int): Number of matches for annotation.
     """
+
+    # ----------------------------
+    # Left axes: radar plots
+    # ----------------------------
+
+    # Generate radar plot images
     radar_images = [radar_plot(df_pivot, df_percentile, team) for team in teams_shortnames]
 
-    fig, axes = plt.subplots(1, len(teams_shortnames) + 1, figsize=(12, 6))
+    n_teams = len(teams_shortnames)
 
+
+    radar_ratio = 0.85 / n_teams
+    widths = [radar_ratio] * n_teams + [0.15]
+
+    fig, axes = plt.subplots(
+        1, n_teams + 1, 
+        figsize=(18, 8), 
+        gridspec_kw={"width_ratios": widths}
+    )
+
+    # Ensure axes is always a list
+    if isinstance(axes, np.ndarray):
+        axes = axes.flatten()
+    else:
+        axes = [axes]
+
+    # Plot radar images
     for ax, img in zip(axes[:-1], radar_images):
         ax.imshow(img)
         ax.axis('off')
-    
-    # Last axes for insights
-    insight_ax = axes[-1]
-    insight_ax.axis('off')
-    insight_ax.axvline(x=0, color='black', linewidth=1)
-    insight_ax.text(0.05, 0.95, "INSIGHTS...", va="top", fontsize=12)
+
+
+    # ----------------------------
+    # Right axis: text
+    # ----------------------------
+
+    ax_text = axes[-1]
+    ax_text.axis('off')  # no axes
+    ax_text.axvline(x=0, color='black', linewidth=1)  # vertical separator
+
+    # Starting y position (top)
+    y_start = 0.95  
+    line_spacing = 0.08
+
+    # Line 1: title
+    ax_text.text(
+        0.05, y_start,
+        "INSIGHTS",
+        va="top",
+        ha="left",
+        fontsize=18,
+        color='black',
+        transform=ax_text.transAxes
+    )
+
+    ax_text.text(
+        0.05, y_start - line_spacing,
+        "Percentile Rank vs A-league teams",
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        transform=ax_text.transAxes,
+        wrap=True
+    )
+
+    # Define categories and colors
+    categories = ["Direct", "Progression", "Build up"]
+    colors = ["#1a78cf", "#ff9300", "#d70232"]
+
+    rect_size = 0.05  # size of the square (width = height)
+    y_start = y_start - 2 * line_spacing  # adjust starting y position
+    line_spacing = 0.08  # space between lines
+
+    for i, (cat, color) in enumerate(zip(categories, colors)):
+        y = y_start - i * line_spacing
+
+        # Add square
+        ax_text.add_patch(
+            plt.Rectangle(
+                (0.05, y - rect_size/2),  # center square vertically on the line
+                rect_size, rect_size,
+                transform=ax_text.transAxes,
+                color=color
+            )
+        )
+
+        # Add text next to square
+        ax_text.text(
+            0.05 + rect_size + 0.03, y,
+            cat,
+            va="center",
+            ha="left",
+            fontsize=12,
+            fontproperties=font_bold.prop,
+            color="#000000",
+            transform=ax_text.transAxes
+        )
+
+    # Line 2: main insight
+    main_text = "Runtypes define team and player profiles. Understanding these profiles can help optimize tactics and player roles. However, which runs are actually valuable?"
+
+    ax_text.text(
+        0.05, y_start - (len(categories)+0.08) * line_spacing,
+        main_text,
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        wrap=True,
+        transform=ax_text.transAxes
+    )
+
+    # Starting y position at the bottom
+    y_bottom = 0.02
+    line_spacing = 0.03
+
+    # Line 1: Season
+    ax_text.text(
+        0.05, y_bottom + 2*line_spacing,
+        f"Season: {season}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 2: Competition
+    ax_text.text(
+        0.05, y_bottom + line_spacing,
+        f"Competition: {competition}",
+        va="bottom",
+        ha="left",
+        fontsize=10, 
+        transform=ax_text.transAxes
+    )
+
+    # Line 3: Total matches
+    ax_text.text(
+        0.05, y_bottom,
+        f"Total matches: {total_matches}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
     plt.tight_layout()
     plt.show()
