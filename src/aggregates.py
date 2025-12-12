@@ -1,8 +1,5 @@
 from typing import List
 import pandas as pd
-from kloppy.domain import TrackingDataset
-from .preprocessing import match_minutes_played
-
 
 def off_ball_event_agg(dynamic_events_all: pd.DataFrame, group_by: List[str]) -> pd.DataFrame:
     """

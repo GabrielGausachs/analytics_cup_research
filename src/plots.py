@@ -1,5 +1,16 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+from mplsoccer import PyPizza, add_image, FontManager
+from highlight_text import fig_text
+from PIL import Image, ImageDraw, ImageFont
+import io
+
+font_normal = FontManager('https://raw.githubusercontent.com/googlefonts/roboto/main/'
+                          'src/hinted/Roboto-Regular.ttf')
+font_italic = FontManager('https://raw.githubusercontent.com/googlefonts/roboto/main/'
+                          'src/hinted/Roboto-Italic.ttf')
+font_bold = FontManager('https://raw.githubusercontent.com/google/fonts/main/apache/robotoslab/'
+                        'RobotoSlab[wght].ttf')
 
 subtype_names_map = {
     "behind": "Behind",
@@ -172,8 +183,7 @@ def plot_total_and_untargeted_per90(
 
 
 def subtype_phase_bubble_plot(
-    df_percent: pd.DataFrame, 
-    bubble_color: str = "#00ff1e",
+    df_percent: pd.DataFrame,
     season: str = "2024/2025",
     competition: str = "Australian A-League",
     total_matches: int = 10,
@@ -184,9 +194,6 @@ def subtype_phase_bubble_plot(
     Args:
         df_percent (pd.DataFrame): Pivoted DataFrame with percentages per subtype per phase.
                                     Index: event_subtype, Columns: phase
-        subtype_names_map (dict, optional): Map event_subtype keys to display names
-        phase_names_map (dict, optional): Map phase keys to display names
-        bubble_color (str): Color of the bubbles
         season (str): Season name for annotation.
         competition (str): Competition name for annotation.
         total_matches (int): Number of matches for annotation.
@@ -217,7 +224,7 @@ def subtype_phase_bubble_plot(
             if pct > 0:
                 size = 100 + pct * 18  # bubble size scales with percentage
                 alpha = 0.3 + 0.7 * (pct / 100)  # bigger alpha for bigger percentages
-                ax_plot.scatter(j, i, s=size, color=bubble_color, alpha=alpha,
+                ax_plot.scatter(j, i, s=size, color="#00ff1e", alpha=alpha,
                            edgecolors="black", linewidth=0.8)
 
                 # Add percentage text for noticeable bubbles
@@ -228,9 +235,9 @@ def subtype_phase_bubble_plot(
                             fontsize=text_size, fontweight=font_w, fontname='Arial')
                     
     ax_plot.set_xticks(range(len(phases_ordered)))
-    ax_plot.set_xticklabels(phases_ordered, rotation=45, ha='right', fontsize=12, fontweight='bold')
+    ax_plot.set_xticklabels(phases_ordered, rotation=45, ha='right')
     ax_plot.set_yticks(range(len(subtypes_ordered)))
-    ax_plot.set_yticklabels(subtypes_ordered, fontsize=12, fontweight='bold')
+    ax_plot.set_yticklabels(subtypes_ordered)
 
 
     # Invert y-axis to show first subtype at the top
@@ -294,3 +301,176 @@ def subtype_phase_bubble_plot(
     plt.tight_layout()
     plt.show()
 
+
+def radar_plot(
+    df_pivot: pd.DataFrame,
+    df_percentile: pd.DataFrame,
+    team_shortname: str)-> Image.Image:
+    """
+    Plots a radar chart for a given team showing percentile ranks of off-ball runs per subtype per 90 minutes.
+
+    Args:
+        df_pivot (pd.DataFrame): Pivoted DataFrame with off-ball runs per subtype per team normalized per 90 minutes.
+                                 Index: team_shortname, Columns: event_subtype
+        df_percentile (pd.DataFrame): Percentile DataFrame with off-ball runs per subtype per team normalized per 90 minutes.
+                                      Index: team_shortname, Columns: event_subtype
+        team_shortname (str): Team shortname to plot.
+
+    Returns:
+        Image.Image: The generated radar plot as an image.
+    """
+
+    # mapping subtype names
+    ordered_subtypes = [
+    "cross_receiver",
+    "behind",
+    "run_ahead_of_the_ball",
+    "overlap",
+    "underlap",
+    "support",
+    "coming_short",
+    "dropping_off",
+    "pulling_half_space",
+    "pulling_wide"
+    ]
+
+    # Reorder columns 
+    df_percentile = df_percentile[ordered_subtypes]
+    df_pivot = df_pivot[ordered_subtypes]
+
+    # Extract values
+    values = df_percentile.loc[team_shortname].tolist()
+    values = [round(v, 1) for v in values]
+
+    params = [subtype_names_map[subtype] for subtype in df_percentile.columns]
+    slice_colors = ["#1A78CF"] * 2 + ["#FF9300"] * 3 + ["#D70232"] * 5
+    text_colors = ["#000000"] * 5 + ["#F2F2F2"] * 5
+
+    baker = PyPizza(
+    params=params,                  # list of parameters
+    straight_line_color="#F2F2F2",  # color for straight lines
+    straight_line_lw=1,             # linewidth for straight lines
+    last_circle_lw=1,               # linewidth of last circle
+    other_circle_lw=1,              # linewidth for other circles
+    other_circle_ls="-.",           # linestyle for other circles
+    inner_circle_size=8,            # size of inner circle
+    )
+
+    # plot pizza
+    fig, ax = baker.make_pizza(
+            values,              # list of values
+            figsize=(8, 8),          # adjust figure size
+            param_location=110,  # where the parameters will be added
+            slice_colors=slice_colors,       # color for individual slices
+            value_colors=text_colors,        # color for the value-text
+            value_bck_colors=slice_colors,   # color for the blank spaces
+            kwargs_slices=dict(
+                facecolor="cornflowerblue", edgecolor="black",
+                zorder=2, linewidth=1
+            ),                   # values to be used when plotting slices
+            kwargs_params=dict(
+                color="#000000", fontsize=10,
+                fontproperties=font_normal.prop, va="center"
+            ),                   # values to be used when adding parameter
+            kwargs_values=dict(
+            color="#000000", fontsize=10,
+            fontproperties=font_normal.prop, zorder=3,
+            bbox=dict(
+                edgecolor="#000000", facecolor="cornflowerblue",
+                boxstyle="round,pad=0.2", lw=1
+                )                   
+            )                   # values to be used when adding values            
+        )
+    
+    # add title
+    fig_text(
+            0.515, 1,
+            f"<{team_shortname}> - Runs Profile",
+            size=15, fig=fig,
+            highlight_textprops=[{"color": "#000000"}],
+            ha="center", fontproperties=font_bold.prop, color="#000000"
+    )
+    
+    # add image if badges_dict is provided
+    #if badges_dict and team1 in badges_dict:
+    #    img = Image.open(badges_dict[team1])
+     #   ax_image = add_image(
+     #       img, fig, left=0.1, bottom=0.9, width=0.13, height=0.127
+     #   )   # these values might differ when you are plotting
+    
+    # add subtitle
+    fig.text(
+    0.515, 0.94,
+    "Percentile Rank vs A-league teams | Season 2024-25\n",
+    size=12,
+    ha="center", fontproperties=font_bold.prop, color="#000000"
+    )
+
+    # add text
+    fig.text(
+        0.39, 0.935, "Direct        Progression       Build up", size=12,
+        fontproperties=font_bold.prop, color="#000000"
+    )
+
+    # add rectangles
+    fig.patches.extend([
+        plt.Rectangle(
+            (0.37, 0.935), 0.01, 0.01, fill=True, color="#1a78cf",
+            transform=fig.transFigure, figure=fig
+        ),
+        plt.Rectangle(
+            (0.45, 0.935), 0.01, 0.01, fill=True, color="#ff9300",
+            transform=fig.transFigure, figure=fig
+        ),
+        plt.Rectangle(
+            (0.575, 0.935), 0.01, 0.01, fill=True, color="#d70232",
+            transform=fig.transFigure, figure=fig
+        ),
+    ])
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    buf.seek(0)
+    img = Image.open(buf)
+    plt.close(fig)  # close the figure to free memory
+
+    return img
+
+
+
+def plot_multiple_radar_plots(
+    df_pivot: pd.DataFrame,
+    df_percentile: pd.DataFrame,
+    teams_shortnames: list,
+    dpi: int = 150,
+    season: str = "2024/2025",
+    competition: str = "Australian A-League",
+    total_matches: int = 10
+    ) -> None:
+    """
+    Creates a single figure with multiple radar plots next to each other and an insight panel on the right.
+
+    Args:
+        df_pivot (pd.DataFrame): Pivoted DataFrame with off-ball runs per subtype per team per 90 minutes.
+        df_percentile (pd.DataFrame): Percentile DataFrame with same shape as df_pivot.
+        teams_shortnames (list): List of team shortnames to plot.
+        dpi (int): Resolution for the final figure.
+        season (str): Season name for annotation.
+        competition (str): Competition name for annotation.
+        total_matches (int): Number of matches for annotation.
+    """
+    radar_images = [radar_plot(df_pivot, df_percentile, team) for team in teams_shortnames]
+
+    fig, axes = plt.subplots(1, len(teams_shortnames) + 1, figsize=(12, 6))
+
+    for ax, img in zip(axes[:-1], radar_images):
+        ax.imshow(img)
+        ax.axis('off')
+    
+    # Last axes for insights
+    insight_ax = axes[-1]
+    insight_ax.axis('off')
+    insight_ax.axvline(x=0, color='black', linewidth=1)
+    insight_ax.text(0.05, 0.95, "INSIGHTS...", va="top", fontsize=12)
+    plt.tight_layout()
+    plt.show()
