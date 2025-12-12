@@ -27,8 +27,6 @@ def match_minutes_played(match_tracking: TrackingDataset) -> float:
 
     total_minutes = total_duration.total_seconds() / 60
 
-    print(f"Total played: {total_minutes:.1f} minutes")
-
     return total_minutes
 
 

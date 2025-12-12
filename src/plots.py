@@ -31,7 +31,7 @@ def plot_total_and_untargeted_per90(agg_df: pd.DataFrame, title: str = "Off-Ball
     # Compute proportion of untargeted per total
     agg_df = agg_df.copy()
     agg_df["untargeted_proportion"] = agg_df["untargeted_per90min"] / agg_df["total_per90min"]
-    agg_df["subtype_display"] = agg_df["subtype"].map(subtype_names_map)
+    agg_df["subtype_display"] = agg_df["event_subtype"].map(subtype_names_map)
 
     # Sort by total events for better visualization
     agg_df = agg_df.sort_values("total_per90min", ascending=True)
