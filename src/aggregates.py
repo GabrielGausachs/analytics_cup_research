@@ -1,140 +1,111 @@
-import pandas as pd
 from typing import List
+import pandas as pd
 from kloppy.domain import TrackingDataset
 from .preprocessing import match_minutes_played
 
 
-def obr_per_subtype(dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
+def off_ball_event_agg(dynamic_events_all: pd.DataFrame, group_by: List[str]) -> pd.DataFrame:
     """
-    Computes off-ball event statistics per event subtype.
-
-    This function filters off-ball events (event_type_id == 1), groups them by
-    event subtype, and computes:
-        - total number of events
-        - number of untargeted events (events where `targeted == 0`)
+    Computes off-ball event statistics grouped by one or more columns.
 
     Args:
-        dynamic_events_all (pd.DataFrame): DataFrame containing dynamic event data.
-            Expected columns include:
-                - "event_type_id"
-                - "event_subtype"
-                - "targeted" (boolean or 0/1 int)
+        dynamic_events_all (pd.DataFrame): Dynamic events DataFrame. Must have:
+            - 'event_type_id' (off-ball = 1)
+            - 'targeted' (boolean)
+        group_by (List[str]): List of columns to group by, e.g.
+            ['event_subtype'] or ['team_in_possession_phase_type', 'event_subtype']
 
     Returns:
-        pd.DataFrame: A DataFrame with columns:
-            - "subtype"
-            - "total"
-            - "untargeted"
+        pd.DataFrame: Aggregated DataFrame with columns:
+            - all group_by columns
+            - 'total': total events in group
+            - 'targeted': number of targeted events
+            - 'untargeted': number of untargeted events
     """
 
-    # Filter off-ball events (event_type_id = 1)
-    off_ball_events = dynamic_events_all[
-        dynamic_events_all["event_type_id"] == 1
-    ]
+    # Filter off-ball events
+    off_ball_events = dynamic_events_all[dynamic_events_all["event_type_id"] == 1]
 
-    print("Number of missing 'targeted' values:", off_ball_events['targeted'].isna().sum())
+    print("Nan values in 'targeted' column:", off_ball_events["targeted"].isna().sum())
 
-    # Group by subtype and compute stats
+    # Aggregate counts
     agg_df = (
         off_ball_events
-        .groupby("event_subtype")
+        .groupby(group_by)
         .agg(
             total=("targeted", "count"),
             targeted=("targeted", "sum")
         )
         .reset_index()
-        .rename(columns={"event_subtype": "subtype"})
     )
 
-    # Compute untargeted events
+    # Compute untargeted
     agg_df["untargeted"] = agg_df["total"] - agg_df["targeted"]
 
-    return agg_df[["subtype", "total", "untargeted"]]
+    return agg_df
 
 
-def obr_per_subtype_per90min(all_tracking: List[TrackingDataset], dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
+def normalize_per90min(df: pd.DataFrame, total_minutes: float, columns_to_normalize: List[str]) -> pd.DataFrame:
     """
-    Computes off-ball event statistics per subtype normalized per 90 minutes of play.
-
-    This function calculates total match duration across all tracking datasets,
-    gets off-ball event counts per subtype, and normalizes the counts to a 90-minute
-    basis. It returns total, targeted, and untargeted counts per 90 minutes.
+    Normalizes specified count columns per 90 minutes of play.
 
     Args:
-        all_tracking (List[TrackingDataset]): List of tracking datasets for all matches.
-        dynamic_events_all (pd.DataFrame): DataFrame containing dynamic event data.
-            Expected columns include:
-                - "event_type_id"
-                - "event_subtype"
-                - "targeted"
+        df (pd.DataFrame): DataFrame containing counts to normalize.
+        total_minutes (float): Total match duration in minutes.
+        columns_to_normalize (List[str]): List of column names to normalize per 90 min.
 
     Returns:
-        pd.DataFrame: A DataFrame with columns:
-            - "subtype"
-            - "total_per90min"
-            - "targeted_per90min"
-            - "untargeted_per90min"
+        pd.DataFrame: Copy of the DataFrame with normalized columns.
+            Each normalized column is named '<original_column>_per90min'.
     """
-
-    # Calculate total match duration in minutes
-    total_minutes = sum(match_minutes_played(match_tracking) for match_tracking in all_tracking)
 
     if total_minutes == 0:
         raise ValueError("Total match minutes is zero. Cannot normalize per 90 minutes.")
 
-    # Get off-ball event stats per subtype
+    df_norm = df.copy()
+    for col in columns_to_normalize:
+        if col not in df_norm.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame.")
+        df_norm[f"{col}_per90min"] = (df_norm[col] / total_minutes) * 90
+
+    return df_norm
+
+
+# -----------------------------
+# Convenience wrappers
+# -----------------------------
+
+def obr_per_subtype(dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
+    """
+    Computes off-ball event statistics per event subtype.
+    Wrapper around off_ball_event_agg.
+    """
+    return off_ball_event_agg(dynamic_events_all, group_by=["event_subtype"])
+
+
+def obr_per_subtype_per90min(all_tracking: List[TrackingDataset], dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
+    """
+    Computes off-ball event stats per subtype normalized per 90 minutes of play.
+
+    Uses off_ball_event_agg and normalize_per90min.
+    """
+
+    total_minutes = sum(match_minutes_played(match) for match in all_tracking)
     agg_df = obr_per_subtype(dynamic_events_all)
-
-    # Normalize counts per 90 minutes
-    agg_df["total_per90min"] = (agg_df["total"] / total_minutes) * 90
-    agg_df["targeted_per90min"] = (agg_df["targeted"] / total_minutes) * 90
-    agg_df["untargeted_per90min"] = (agg_df["untargeted"] / total_minutes) * 90
-
-    return agg_df[["subtype", "total_per90min", "targeted_per90min", "untargeted_per90min"]]
-
+    return normalize_per90min(
+        agg_df,
+        total_minutes=total_minutes,
+        columns_to_normalize=["total", "targeted", "untargeted"]
+    )
 
 
 def obr_per_subtype_per_phase(dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
     """
     Computes the total number of off-ball runs per subtype per phase of play.
 
-    This function filters off-ball events (event_type_id == 1), groups them by
-    team_in_possession_phase_type and event_subtype, and counts the number of
-    runs.
-
-    Args:
-        dynamic_events_all (pd.DataFrame): DataFrame containing dynamic event data.
-            Expected columns:
-                - "event_type_id"
-                - "event_subtype"
-                - "team_in_possession_phase_type"
-
-    Returns:
-        pd.DataFrame: A DataFrame with columns:
-            - "phase": The possession phase type.
-            - "subtype": Event subtype.
-            - "total": Total runs for that subtype and phase.
+    Uses the flexible aggregation function.
     """
-
-    # Filter off-ball events
-    off_ball_events = dynamic_events_all[dynamic_events_all["event_type_id"] == 1]
-    # Group by phase and event subtype
-    off_ball_event_groups = off_ball_events.groupby(
-        ["team_in_possession_phase_type", "event_subtype"]
-    )
-
-    # Compute total run counts
-    obr_subtype_phase = [
-        {
-            "phase": phase,
-            "subtype": subtype,
-            "total": group.shape[0]
-        }
-        for (phase, subtype), group in off_ball_event_groups
-    ]
-
-    # Convert to DataFrame
-    obr_per_subtype_phase = pd.DataFrame(obr_subtype_phase)
-
-    return obr_per_subtype_phase
-
+    return off_ball_event_agg(
+        dynamic_events_all,
+        group_by=["team_in_possession_phase_type", "event_subtype"]
+    )[["team_in_possession_phase_type", "event_subtype", "total"]]
