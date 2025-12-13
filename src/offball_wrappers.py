@@ -1,9 +1,9 @@
 import pandas as pd
 from kloppy.domain import TrackingDataset
 
-from .plots import plot_total_and_untargeted_per90, subtype_phase_bubble_plot, plot_multiple_radar_plots
-from .preprocessing import match_minutes_played
-from typing import List, Optional
+from .plots import plot_total_and_untargeted_per90, subtype_phase_bubble_plot, plot_multiple_radar_plots_teams
+from .preprocessing import match_minutes_played, player_minutes_per_match
+from typing import List, Optional, Dict, Any, Tuple
 from .aggregates import off_ball_event_agg, normalize_per90min
 
 phase_order = [
@@ -120,7 +120,7 @@ def obr_per_subtype_per_team(dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
     return off_ball_event_agg(dynamic_events_all, group_by=["event_subtype", "team_id","team_shortname"])
 
 
-def obr_per_subtype_per_team_per90min(all_tracking: List[TrackingDataset], dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
+def obr_per_subtype_per_team_per90min(all_tracking: List[TrackingDataset], dynamic_events_all: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Computes off-ball runs stats per subtype and team per 90 minutes of play.
 
@@ -166,6 +166,89 @@ def obr_per_subtype_per_team_per90min(all_tracking: List[TrackingDataset], dynam
 
     return df_pivot, percentile_df
 
+def obr_per_subtype_per_player(dynamic_events_all: pd.DataFrame) -> pd.DataFrame:
+    """
+    Computes off-ball runs statistics per event subtype and player.
+
+    Args:
+        dynamic_events_all (pd.DataFrame): Dynamic events DataFrame.
+    
+    Returns:
+        pd.DataFrame: DataFrame with columns:['event_subtype', 'player_id', 'player_name', 'total', 'targeted', 'untargeted']
+    """
+
+    return off_ball_event_agg(dynamic_events_all, group_by=["event_subtype", "player_id","player_name"])
+
+def obr_per_subtype_per_player_per90min(
+    all_metadata: List[Dict[str, Any]], 
+    dynamic_events_all: pd.DataFrame, 
+    min_matches: Optional[int] = 0, 
+    min_avg_minutes_played: Optional[int] = 0
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Computes off-ball runs stats per subtype and player per 90 minutes of play.
+
+    Args:
+        all_metadata (List[Dict[str, Any]]): List of match metadata dictionaries.
+        dynamic_events_all (pd.DataFrame): DataFrame containing dynamic event data.
+    
+    Returns:
+        pd.DataFrame: Pivoted DataFrame with off-ball runs per subtype per player normalized per 90 minutes.
+        pd.DataFrame: Percentile DataFrame with off-ball runs per subtype per player normalized per 90 minutes.
+
+    """
+
+    # Calculate total minutes per player across all matches
+    player_minutes_df = player_minutes_per_match(all_metadata)
+
+    # Get eligible players based on min_matches and min_avg_minutes_played
+    eligible_players = (
+        player_minutes_df.groupby("player_id")
+        .agg(
+            matches=("match_id", "nunique"),
+            avg_minutes=("minutes_played", "mean"),
+            total_minutes=("minutes_played", "sum"),
+        )
+        .reset_index()
+    )
+
+    eligible_players = eligible_players[
+        (eligible_players["matches"] >= min_matches) &
+        (eligible_players["avg_minutes"] >= min_avg_minutes_played)
+    ]
+
+    print(f"Number of eligible players: {len(eligible_players)}")
+
+    # Get the off ball runs per subtype per player
+    agg_df = obr_per_subtype_per_player(dynamic_events_all)
+
+    print(agg_df.head())
+
+    # Add total minutes per player to the DataFrame
+    agg_df = agg_df.merge(
+        eligible_players[["player_id", "total_minutes"]],
+        on="player_id",
+        how="inner"
+    )
+    print("After merging eligible players:")
+    print(agg_df.head())
+
+    # Normalize per 90 minutes
+    agg_df["runs_per90min"] = agg_df.apply(
+        lambda row: (row["total"] / row["total_minutes"] * 90) if row["total_minutes"] > 0 else 0, axis=1
+    )
+
+    # Pivot the DataFrame to have subtypes as columns and players as rows
+    df_pivot = agg_df.pivot(
+        index='player_name', 
+        columns='event_subtype', 
+        values='runs_per90min'
+        ).fillna(0)
+    
+    # Calculate percentiles
+    percentile_df = df_pivot.rank(pct=True) * 100
+
+    return df_pivot, percentile_df
 
 
 
@@ -248,7 +331,7 @@ def a_obr_per_subtype_per_team(
     df_pivot, df_percentile = obr_per_subtype_per_team_per90min(all_tracking, dynamic_events_all)
 
     if teams_shortnames is not None:
-        plot_multiple_radar_plots(
+        plot_multiple_radar_plots_teams(
             df_pivot=df_pivot,
             df_percentile=df_percentile,
             teams_shortnames=teams_shortnames,
@@ -257,3 +340,41 @@ def a_obr_per_subtype_per_team(
             total_matches=total_matches)
     else:
         raise ValueError("Please provide a list of team shortnames to plot radar plots.")
+    
+
+def a_obr_per_subtype_per_player(
+    all_tracking: List[TrackingDataset],
+    dynamic_events_all: pd.DataFrame,
+    players_names: Optional[List[str]] = None,
+    season: Optional[str] = "2024/2025",
+    competition: Optional[str] = "Australian A-League",
+    total_matches: Optional[int] = 10,
+    min_matches: Optional[int] = 0,
+    min_avg_minutes_played: Optional[int] = 0
+    ) -> pd.DataFrame:
+    """
+    Computes off-ball runs stats per subtype and player per 90 minutes of play and plots a radar plot for selected players.
+
+    Args:
+        all_tracking (List[TrackingDataset]): List of tracking datasets for all matches.
+        dynamic_events_all (pd.DataFrame): DataFrame containing dynamic event data.
+        players_names (Optional[List[str]]): List of player names to plot.
+        season (Optional[str]): Season string for annotation.
+        competition (Optional[str]): Competition string for annotation.
+        total_matches (Optional[int]): Number of matches for annotation.
+        min_matches (Optional[int]): Minimum number of matches a player must have played to be included.
+        min_avg_minutes_played (Optional[int]): Minimum average minutes played per match for a player to be included.
+    """
+
+    df_pivot, df_percentile = obr_per_subtype_per_player_per90min(all_tracking, dynamic_events_all, min_matches, min_avg_minutes_played)
+
+    if players_names is not None:
+        plot_multiple_radar_plots_players(
+            df_pivot=df_pivot,
+            df_percentile=df_percentile,
+            players_names=players_names,
+            season=season,
+            competition=competition,
+            total_matches=total_matches)
+    else:
+        raise ValueError("Please provide a list of player names to plot radar plots.")

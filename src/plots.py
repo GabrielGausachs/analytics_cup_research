@@ -443,7 +443,7 @@ def radar_plot(
 
 
 
-def plot_multiple_radar_plots(
+def plot_multiple_radar_plots_teams(
     df_pivot: pd.DataFrame,
     df_percentile: pd.DataFrame,
     teams_shortnames: list,

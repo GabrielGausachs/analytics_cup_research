@@ -1,5 +1,7 @@
 from datetime import timedelta
 from kloppy.domain import TrackingDataset
+import pandas as pd
+from typing import List, Dict, Any
 
 
 def match_minutes_played(match_tracking: TrackingDataset) -> float:
@@ -29,4 +31,38 @@ def match_minutes_played(match_tracking: TrackingDataset) -> float:
 
     return total_minutes
 
+
+def player_minutes_per_match(all_metadata: List[Dict[str, Any]]) -> pd.DataFrame:
+    """
+    Return minutes played per player per match.
+
+    Args:
+        all_metadata (list): List of match metadata dictionaries.
+
+    Returns:
+        pd.DataFrame: DataFrame with columns
+            ['match_id', 'player_id', 'minutes_played']
+    """
+
+    records = []
+
+    for metadata in all_metadata:
+        match_id = metadata.get("match_id")
+
+        for player in metadata.get("players", []):
+            player_id = player.get("id")
+
+            if player_id is None:
+                continue
+
+            total_time = player.get("playing_time", {}).get("total", {})
+            minutes = total_time.get("minutes_played", 0)
+
+            records.append({
+                "match_id": match_id,
+                "player_id": player_id,
+                "minutes_played": minutes
+            })
+
+    return pd.DataFrame(records)
 
