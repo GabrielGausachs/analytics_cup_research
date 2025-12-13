@@ -801,3 +801,177 @@ def plot_multiple_radar_plots_players(
     plt.tight_layout()
     plt.show()
 
+
+def plot_scatter_ddc_distance(
+    df_ddc_pd: pd.DataFrame,
+    season: str = "2024/2025",
+    competition: str = "Australian A-League",
+    total_matches: int = 10,
+    min_matches: int = 2,
+    min_avg_minutes_played: int = 40):
+    """
+    Plots a scatter plot of Defensive Density Change per 90 min vs Distance tip per 90 min.
+
+    Args:
+        df_ddc_pd (pd.DataFrame): DataFrame with columns:
+            - "def_density_change_per90min"
+            - "distance_tip_per90"
+        season (str): Season name for annotation.
+        competition (str): Competition name for annotation.
+        total_matches (int): Number of matches for annotation.
+        min_matches (int): Minimum number of matches played for annotation.
+        min_avg_minutes_played (int): Minimum average minutes played for annotation.
+    """
+
+    # Compute means
+    mean_x = df_ddc_pd['def_density_change_per90min'].mean()
+    mean_y = df_ddc_pd['distance_tip_per90'].mean()
+
+    # Overall score to highlight best overall player
+    df_ddc_pd['z_distance'] = (df_ddc_pd['distance_tip_per90'] - mean_y) / df_ddc_pd['distance_tip_per90'].std()
+    df_ddc_pd['z_density']  = (df_ddc_pd['def_density_change_per90min'] - mean_x) / df_ddc_pd['def_density_change_per90min'].std()
+    df_ddc_pd['overall_score'] = df_ddc_pd['z_distance'] + df_ddc_pd['z_density']
+    best_overall_indices = df_ddc_pd.sort_values("overall_score", ascending=False).head(2).index
+
+
+    # Create figure with two axes: left for scatter, right for text
+    fig, (ax_plot, ax_text) = plt.subplots(
+        1, 2, 
+        figsize=(12, 6),
+        gridspec_kw={"width_ratios": [3, 1]}  # 3:1 ratio
+    )
+
+    # ----------------------------
+    # Left axis: scatter plot
+    # ----------------------------
+    ax_plot.scatter(df_ddc_pd['def_density_change_per90min'], df_ddc_pd['distance_tip_per90'], 
+                    s=200, alpha=0.5, color="#00ff1e", edgecolors='black')
+
+    # Highlight best overall player
+    for idx in best_overall_indices:
+        ax_plot.scatter(
+            df_ddc_pd.loc[idx, 'def_density_change_per90min'],
+            df_ddc_pd.loc[idx, 'distance_tip_per90'],
+            color='red',
+            edgecolor='black',
+            s=300,
+            alpha=0.8,
+            linewidth=1,
+        )
+
+        ax_plot.text(
+        df_ddc_pd.loc[idx, 'def_density_change_per90min'] + 0.2,  # horizontal offset
+        df_ddc_pd.loc[idx, 'distance_tip_per90'] + 0.2,  # vertical offset
+        df_ddc_pd.loc[idx, 'player_short_name'],
+        fontsize=10,
+        fontweight='bold',
+        color='black'
+    )
+
+    # Mean lines
+    ax_plot.axvline(x=mean_x, color='gray', alpha=0.5, linestyle='--')
+    ax_plot.axhline(y=mean_y, color='gray', alpha=0.5, linestyle='--')
+
+    ax_plot.set_xlabel('Defensive Density Change (m)', fontsize=12)
+    ax_plot.set_ylabel('Distance tip (m)', fontsize=12)
+    ax_plot.set_title('Getting Free from Defensive Pressure', fontsize=14, fontweight='bold')
+
+    ax_plot.spines['top'].set_visible(False)
+    ax_plot.spines['right'].set_visible(False)
+    ax_plot.spines['left'].set_visible(True)
+    ax_plot.spines['bottom'].set_visible(True)
+
+    # ----------------------------
+    # Right axis: text
+    # ----------------------------
+
+    ax_text.axis('off')  # no axes
+    ax_text.axvline(x=0, color='black', linewidth=1)  # vertical separator
+
+    # Starting y position (top)
+    y_start = 0.95  
+    line_spacing = 0.08
+
+    # Line 1: title
+    ax_text.text(
+        0.05, y_start,
+        "INSIGHTS",
+        va="top",
+        ha="left",
+        fontsize=18,
+        color='black',
+        transform=ax_text.transAxes
+    )
+
+
+    # Line 2: main insight
+    main_text = "This highlights players who don’t just cover ground, " \
+    "but use their running to regularly get free from pressure and open up space to receive the ball."
+
+    ax_text.text(
+        0.05, y_start - line_spacing,
+        main_text,
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        wrap=True,
+        transform=ax_text.transAxes
+    )
+
+    # Starting y position at the bottom
+    y_bottom = 0.02
+    line_spacing = 0.03
+
+    # Line 1: Season
+    ax_text.text(
+        0.05, y_bottom + 5*line_spacing,
+        f"Season: {season}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 2: Competition
+    ax_text.text(
+        0.05, y_bottom + 4*line_spacing,
+        f"Competition: {competition}",
+        va="bottom",
+        ha="left",
+        fontsize=10, 
+        transform=ax_text.transAxes
+    )
+
+    # Line 3: Total matches
+    ax_text.text(
+        0.05, y_bottom + 3*line_spacing,
+        f"Total matches: {total_matches}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 4: Min matches
+    ax_text.text(
+        0.05, y_bottom + 2*line_spacing,
+        f"Minimum of {min_matches} matches and minimum {min_avg_minutes_played} avg minutes played",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 5: Metric per90min explanation
+    ax_text.text(
+        0.05, y_bottom + line_spacing,
+        "Metrics are normalized per 90 minutes played.",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+    
+    plt.tight_layout()
+    plt.show()

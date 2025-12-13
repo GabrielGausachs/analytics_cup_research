@@ -106,7 +106,7 @@ def preprocess_physical_data(physical_data: pd.DataFrame) -> pd.DataFrame:
 
     Args:
         physical_data (pd.DataFrame): DataFrame containing physical data for players.
-        
+
     Returns:
         pd.DataFrame: Preprocessed DataFrame with distance covered per 90 minutes for midfield players.
     """
@@ -119,6 +119,7 @@ def preprocess_physical_data(physical_data: pd.DataFrame) -> pd.DataFrame:
         "player_id", "player_short_name", "team_name", "season_name", "total_metersperminute_full_tip",
     ]
     physical_mid = physical_mid[cols]
+
 
     # Compute per 90-minute metrics
     physical_mid["distance_tip_per90"] = physical_mid["total_metersperminute_full_tip"] * 90
