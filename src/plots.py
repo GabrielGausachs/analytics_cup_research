@@ -611,3 +611,193 @@ def plot_multiple_radar_plots_teams(
 
     plt.tight_layout()
     plt.show()
+
+
+def plot_multiple_radar_plots_players(
+    df_pivot: pd.DataFrame,
+    df_percentile: pd.DataFrame,
+    players_names: list,
+    season: str = "2024/2025",
+    competition: str = "Australian A-League",
+    total_matches: int = 10,
+    min_matches: int = 2,
+    min_avg_minutes_played: int = 40
+    ) -> None:
+    """
+    Creates a single figure with multiple radar plots next to each other and an insight panel on the right.
+
+    Args:
+        df_pivot (pd.DataFrame): Pivoted DataFrame with off-ball runs per subtype per team per 90 minutes.
+        df_percentile (pd.DataFrame): Percentile DataFrame with same shape as df_pivot.
+        players_names (list): List of player names to plot.
+        season (str): Season name for annotation.
+        competition (str): Competition name for annotation.
+        total_matches (int): Number of matches for annotation.
+        min_matches (int): Minimum number of matches played for annotation.
+        min_avg_minutes_played (int): Minimum average minutes played for annotation.
+    """
+
+    # ----------------------------
+    # Left axes: radar plots
+    # ----------------------------
+
+    # Check if the players exist in the DataFrame
+    missing_players = [player for player in players_names if player not in df_pivot.index]
+    if missing_players:
+        raise ValueError(f"The following players are not in the DataFrame index: {missing_players}")
+    
+    # Generate radar plot images
+    radar_images = [radar_plot(df_pivot, df_percentile, player) for player in players_names]
+
+    n_players = len(players_names)
+
+
+    radar_ratio = 0.85 / n_players
+    widths = [radar_ratio] * n_players + [0.15]
+
+    fig, axes = plt.subplots(
+        1, n_players + 1, 
+        figsize=(18, 8), 
+        gridspec_kw={"width_ratios": widths}
+    )
+
+    # Ensure axes is always a list
+    if isinstance(axes, np.ndarray):
+        axes = axes.flatten()
+    else:
+        axes = [axes]
+
+    # Plot radar images
+    for ax, img in zip(axes[:-1], radar_images):
+        ax.imshow(img)
+        ax.axis('off')
+
+
+    # ----------------------------
+    # Right axis: text
+    # ----------------------------
+
+    ax_text = axes[-1]
+    ax_text.axis('off')  # no axes
+    ax_text.axvline(x=0, color='black', linewidth=1)  # vertical separator
+
+    # Starting y position (top)
+    y_start = 0.95  
+    line_spacing = 0.08
+
+    # Line 1: title
+    ax_text.text(
+        0.05, y_start,
+        "INSIGHTS",
+        va="top",
+        ha="left",
+        fontsize=18,
+        color='black',
+        transform=ax_text.transAxes
+    )
+
+    ax_text.text(
+        0.05, y_start - line_spacing,
+        "Percentile Rank vs A-league players",
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        transform=ax_text.transAxes,
+        wrap=True
+    )
+
+    # Define categories and colors
+    categories = ["Direct", "Progression", "Build up"]
+    colors = ["#1a78cf", "#ff9300", "#d70232"]
+
+    rect_size = 0.05  # size of the square (width = height)
+    y_start = y_start - 2 * line_spacing  # adjust starting y position
+    line_spacing = 0.08  # space between lines
+
+    for i, (cat, color) in enumerate(zip(categories, colors)):
+        y = y_start - i * line_spacing
+
+        # Add square
+        ax_text.add_patch(
+            plt.Rectangle(
+                (0.05, y - rect_size/2),  # center square vertically on the line
+                rect_size, rect_size,
+                transform=ax_text.transAxes,
+                color=color
+            )
+        )
+
+        # Add text next to square
+        ax_text.text(
+            0.05 + rect_size + 0.03, y,
+            cat,
+            va="center",
+            ha="left",
+            fontsize=12,
+            fontproperties=font_bold.prop,
+            color="#000000",
+            transform=ax_text.transAxes
+        )
+
+    # Line 2: main insight
+    main_text = "Runtypes define team and player profiles. Understanding these profiles can help optimize tactics and player roles. However, which runs are actually valuable?"
+
+    ax_text.text(
+        0.05, y_start - (len(categories)+0.08) * line_spacing,
+        main_text,
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        wrap=True,
+        transform=ax_text.transAxes
+    )
+
+    # Starting y position at the bottom
+    y_bottom = 0.02
+    line_spacing = 0.03
+
+    # Line 1: Season
+    ax_text.text(
+        0.05, y_bottom + 3*line_spacing,
+        f"Season: {season}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 2: Competition
+    ax_text.text(
+        0.05, y_bottom + 2*line_spacing,
+        f"Competition: {competition}",
+        va="bottom",
+        ha="left",
+        fontsize=10, 
+        transform=ax_text.transAxes
+    )
+
+    # Line 3: Total matches
+    ax_text.text(
+        0.05, y_bottom + line_spacing,
+        f"Total matches: {total_matches}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 4: Min matches
+    ax_text.text(
+        0.05, y_bottom,
+        f"Minimum of {min_matches} matches and minimum {min_avg_minutes_played} avg minutes played",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    plt.tight_layout()
+    plt.show()
+

@@ -47,7 +47,7 @@ def player_minutes_per_match(all_metadata: List[Dict[str, Any]]) -> pd.DataFrame
     records = []
 
     for metadata in all_metadata:
-        match_id = metadata.get("match_id")
+        match_id = metadata.get("id")
 
         for player in metadata.get("players", []):
             player_id = player.get("id")
@@ -56,7 +56,11 @@ def player_minutes_per_match(all_metadata: List[Dict[str, Any]]) -> pd.DataFrame
                 continue
 
             total_time = player.get("playing_time", {}).get("total", {})
-            minutes = total_time.get("minutes_played", 0)
+
+            if total_time is None:
+                continue
+            else:
+                minutes = total_time.get("minutes_played", 0)
 
             records.append({
                 "match_id": match_id,
