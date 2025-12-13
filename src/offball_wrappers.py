@@ -395,8 +395,8 @@ def a_obr_per_subtype_per_player(
     season: Optional[str] = "2024/2025",
     competition: Optional[str] = "Australian A-League",
     total_matches: Optional[int] = 10,
-    min_matches: Optional[int] = 2,
-    min_avg_minutes_played: Optional[int] = 40
+    min_matches: Optional[int] = 0,
+    min_avg_minutes_played: Optional[int] = 0
     ) -> pd.DataFrame:
     """
     Computes off-ball runs stats per subtype and player per 90 minutes of play and plots a radar plot for selected players.

@@ -1,12 +1,14 @@
 import json
+import os
 from typing import List, Tuple, Dict, Any
 import pandas as pd
 import requests
 from kloppy.domain import Orientation
 from kloppy import skillcorner
+import os
 
 
-def load_matches(matches_json_path: str) -> Tuple[List, pd.DataFrame, List[Dict[str, Any]]]:
+def load_matches(data_path: str) -> Tuple[List, pd.DataFrame, List[Dict[str, Any]]]:
     """
     Loads tracking datasets, dynamic events, and metadata for all matches listed in a JSON file.
 
@@ -16,7 +18,7 @@ def load_matches(matches_json_path: str) -> Tuple[List, pd.DataFrame, List[Dict[
         - metadata JSON files for each match.
 
     Args:
-        matches_json_path (str): Path to the local JSON file containing match IDs.
+        data_path (str): Path to the local directory containing the matches.json file.
             The JSON is expected to be a list of match dictionaries, each containing an "id" field.
 
     Returns:
@@ -27,7 +29,7 @@ def load_matches(matches_json_path: str) -> Tuple[List, pd.DataFrame, List[Dict[
     """
 
     # Load local match list JSON
-    with open(matches_json_path, "r") as f:
+    with open(os.path.join(data_path, "matches.json"), "r") as f:
         matches_json = json.load(f)
 
     match_ids = [match["id"] for match in matches_json]
@@ -72,6 +74,19 @@ def load_matches(matches_json_path: str) -> Tuple[List, pd.DataFrame, List[Dict[
         all_metadata.append(raw_match_data)
 
     return all_tracking, dynamic_events_all, all_metadata
+
+def load_physical_data(data_path: str) -> pd.DataFrame:
+    """
+    Loads physical data from a CSV file.
+
+    Args:
+        data_path (str): Path to the local directory containing the physical_data.csv file.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the physical data.
+    """
+    df = pd.read_csv(os.path.join(data_path, "aus1league_physicalaggregates_20242025_midfielders.csv"))
+    return df
 
 
         
