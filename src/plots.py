@@ -827,12 +827,32 @@ def plot_scatter_ddc_distance(
     mean_x = df_ddc_pd['def_density_change_per90min'].mean()
     mean_y = df_ddc_pd['distance_tip_per90'].mean()
 
-    # Overall score to highlight best overall player
+    # Highest overall player in both metrics
     df_ddc_pd['z_distance'] = (df_ddc_pd['distance_tip_per90'] - mean_y) / df_ddc_pd['distance_tip_per90'].std()
     df_ddc_pd['z_density']  = (df_ddc_pd['def_density_change_per90min'] - mean_x) / df_ddc_pd['def_density_change_per90min'].std()
     df_ddc_pd['overall_score'] = df_ddc_pd['z_distance'] + df_ddc_pd['z_density']
-    best_overall_indices = df_ddc_pd.sort_values("overall_score", ascending=False).head(2).index
+    best_overall_idx = df_ddc_pd.sort_values("overall_score", ascending=False).head(1).index
 
+    # Highest defensive density change and lowest distance tip
+    x_max = df_ddc_pd['def_density_change_per90min'].max()
+    y_min = df_ddc_pd['distance_tip_per90'].min()
+    x_min = df_ddc_pd['def_density_change_per90min'].min()
+    y_max = df_ddc_pd['distance_tip_per90'].max()
+
+    # Get the bottom right point
+    y_bottom = y_min - 1500
+    x_right = x_max + 5
+    bottom_right_point = (x_right,y_bottom)
+
+    # Optionally exclude the best overall player
+    df_candidates = df_candidates.drop(index=best_overall_idx, errors='ignore')
+
+    # Get the distance of each candidate to the bottom right point
+
+    # Get the 2 players with minimum distance
+
+    
+    best_overall_indices = [best_overall_idx[0], best_bottom_right_indices[0], best_bottom_right_indices[1]]
 
     # Create figure with two axes: left for scatter, right for text
     fig, (ax_plot, ax_text) = plt.subplots(
@@ -860,17 +880,21 @@ def plot_scatter_ddc_distance(
         )
 
         ax_plot.text(
-        df_ddc_pd.loc[idx, 'def_density_change_per90min'] + 0.2,  # horizontal offset
-        df_ddc_pd.loc[idx, 'distance_tip_per90'] + 0.2,  # vertical offset
+        df_ddc_pd.loc[idx, 'def_density_change_per90min'],
+        df_ddc_pd.loc[idx, 'distance_tip_per90'] - 100,
         df_ddc_pd.loc[idx, 'player_short_name'],
         fontsize=10,
-        fontweight='bold',
-        color='black'
-    )
+        color='black',
+        ha='center',
+        va='top',
+        )
 
     # Mean lines
     ax_plot.axvline(x=mean_x, color='gray', alpha=0.5, linestyle='--')
     ax_plot.axhline(y=mean_y, color='gray', alpha=0.5, linestyle='--')
+
+    ax_plot.set_xlim(x_min-5, x_max+5)
+    ax_plot.set_ylim(y_min-1500, y_max+1500)
 
     ax_plot.set_xlabel('Defensive Density Change (m)', fontsize=12)
     ax_plot.set_ylabel('Distance tip (m)', fontsize=12)
@@ -880,6 +904,39 @@ def plot_scatter_ddc_distance(
     ax_plot.spines['right'].set_visible(False)
     ax_plot.spines['left'].set_visible(True)
     ax_plot.spines['bottom'].set_visible(True)
+
+    # Axis limits (after plotting everything)
+    x_min, x_max = ax_plot.get_xlim()
+    y_min, y_max = ax_plot.get_ylim()
+
+    # ----------------------------
+    # Quadrant annotations
+    # ----------------------------
+
+    # Bottom-right quadrant (farthest corner from mean = bottom-right corner)
+    ax_plot.text(
+        x_max,
+        y_min+100,
+        "Efficient movers\n(low volume, high space gain)",
+        ha="right",
+        va="bottom",
+        fontsize=10,
+        color="black",
+        alpha=0.8
+    )
+
+    # Top-right quadrant (farthest corner from mean = top-right corner)
+    ax_plot.text(
+        x_max,
+        y_max-100,
+        "Dynamic movers\n(high volume, high space gain)",
+        ha="right",
+        va="top",
+        fontsize=10,
+        color="black",
+        alpha=0.8
+    )
+
 
     # ----------------------------
     # Right axis: text
@@ -929,7 +986,7 @@ def plot_scatter_ddc_distance(
         f"Season: {season}",
         va="bottom",
         ha="left",
-        fontsize=10,
+        fontsize=8,
         transform=ax_text.transAxes
     )
 
@@ -939,7 +996,7 @@ def plot_scatter_ddc_distance(
         f"Competition: {competition}",
         va="bottom",
         ha="left",
-        fontsize=10, 
+        fontsize=8, 
         transform=ax_text.transAxes
     )
 
@@ -949,7 +1006,7 @@ def plot_scatter_ddc_distance(
         f"Total matches: {total_matches}",
         va="bottom",
         ha="left",
-        fontsize=10,
+        fontsize=8,
         transform=ax_text.transAxes
     )
 
@@ -959,7 +1016,7 @@ def plot_scatter_ddc_distance(
         f"Minimum of {min_matches} matches and minimum {min_avg_minutes_played} avg minutes played",
         va="bottom",
         ha="left",
-        fontsize=10,
+        fontsize=8,
         transform=ax_text.transAxes
     )
 
@@ -969,7 +1026,7 @@ def plot_scatter_ddc_distance(
         "Metrics are normalized per 90 minutes played.",
         va="bottom",
         ha="left",
-        fontsize=10,
+        fontsize=8,
         transform=ax_text.transAxes
     )
     
