@@ -1,4 +1,4 @@
-from .preprocessing import filter_elegible_players
+from .preprocessing import filter_eligible_players
 from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates
 from .helpers import get_voronoi_bounded
 import numpy as np
@@ -120,7 +120,7 @@ def metric_sc(
     """
 
     # Filter eligible players
-    mid_obr_filtered, eligible_players = filter_elegible_players(
+    mid_obr_filtered, eligible_players = filter_eligible_players(
         dynamic_events_all, 
         all_metadata,
         min_matches,

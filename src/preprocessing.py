@@ -129,11 +129,11 @@ def preprocess_physical_data(physical_data: pd.DataFrame) -> pd.DataFrame:
 
     return physical_mid
 
-def filter_elegible_players(
+def filter_eligible_players(
     dynamic_events_all: pd.DataFrame, 
     all_metadata: List[Dict[str, Any]],
     min_matches: Optional[int] = 0, 
-    min_avg_minutes_played: Optional[int] = 0
+    min_avg_minutes_played: Optional[int] = 0,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Filter by midfielders who have played at least min_matches and min_avg_minutes_played.
@@ -149,7 +149,7 @@ def filter_elegible_players(
             - mid_obr_filtered (pd.DataFrame): Filtered DataFrame containing midfielder off-ball events.
             - eligible_players (pd.DataFrame): DataFrame of eligible players with their match and minutes played stats.
     """
-
+    
     mid_obr = midfielders_obr(dynamic_events_all)
 
     player_minutes_df = player_minutes_per_match(all_metadata)

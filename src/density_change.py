@@ -1,4 +1,4 @@
-from .preprocessing import filter_elegible_players
+from .preprocessing import filter_eligible_players
 from .tracking_functions import find_frame_start_end, get_player_coordinates
 import pandas as pd
 import numpy as np
@@ -95,7 +95,7 @@ def metric_ddc(
     """
 
     # Filter eligible players
-    mid_obr_filtered, eligible_players = filter_elegible_players(
+    mid_obr_filtered, eligible_players = filter_eligible_players(
         dynamic_events_all, 
         all_metadata,
         min_matches,

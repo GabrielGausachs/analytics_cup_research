@@ -2,7 +2,7 @@ import pandas as pd
 from kloppy.domain import TrackingDataset
 
 from .plots import plot_total_and_untargeted_per90, subtype_phase_bubble_plot, plot_multiple_radar_plots_teams, plot_multiple_radar_plots_players
-from .preprocessing import match_minutes_played, player_minutes_per_match
+from .preprocessing import match_minutes_played, player_minutes_per_match, filter_eligible_players
 from typing import List, Optional, Dict, Any, Tuple
 from .aggregates import off_ball_event_agg, normalize_per90min
 from .helpers import entropy
@@ -199,24 +199,13 @@ def obr_per_subtype_per_player_per90min(
 
     """
 
-    # Calculate total minutes per player across all matches
-    player_minutes_df = player_minutes_per_match(all_metadata)
-
     # Get eligible players based on min_matches and min_avg_minutes_played
-    eligible_players = (
-        player_minutes_df.groupby("player_id")
-        .agg(
-            matches=("match_id", "nunique"),
-            avg_minutes=("minutes_played", "mean"),
-            total_minutes=("minutes_played", "sum"),
-        )
-        .reset_index()
+    _, eligible_players = filter_eligible_players(
+        dynamic_events_all,
+        all_metadata,
+        min_matches,
+        min_avg_minutes_played
     )
-
-    eligible_players = eligible_players[
-        (eligible_players["matches"] >= min_matches) &
-        (eligible_players["avg_minutes"] >= min_avg_minutes_played)
-    ]
 
     # Get the off ball runs per subtype per player
     agg_df = obr_per_subtype_per_player(dynamic_events_all)
@@ -295,6 +284,65 @@ def obr_entropy_positiongroup(
     entropy_by_position = entropy_by_position.sort_values(by="entropy", ascending=False).reset_index(drop=True)
 
     return entropy_by_position
+
+def obr_push_defensive_line(
+    dynamic_events_all: pd.DataFrame,
+    all_metadata: List[Dict[str, Any]],
+    min_matches: Optional[int] = 0, 
+    min_avg_minutes_played: Optional[int] = 0)-> pd.DataFrame:
+    """
+    Computes statistics on off-ball runs that push the defensive line.
+
+    Args:
+        dynamic_events_all (pd.DataFrame): Dynamic events DataFrame.
+        all_metadata (List[Dict[str, Any]]): List of match metadata dictionaries.
+        min_matches (int, optional): Minimum number of matches a player must have played to be included.
+        min_avg_minutes_played (int, optional): Minimum average minutes played per match for a player to be included.
+
+    Returns:
+        pd.DataFrame: DataFrame with columns:['player_id', 'total_runs', 'push_defensive_line_runs', 'total_minutes', 'total_runs_per90', 'push_defensive_line_per90', 'percentage_push_defensive_line']
+    """
+
+    mid_obr_filtered, eligible_players = filter_eligible_players(
+        dynamic_events_all, 
+        all_metadata, 
+        min_matches, 
+        min_avg_minutes_played)
+    
+    # Filter off-ball runs of subtype 'behind'
+    in_behind_runs = mid_obr_filtered.copy()
+    in_behind_runs = in_behind_runs[in_behind_runs["event_subtype"] == "behind"]
+
+    # Group by player_id to get total runs and total runs with push_defensive_line equals True
+    df_in_behind = (
+        in_behind_runs.groupby("player_id", as_index=False)
+        .agg(
+            total_runs=("event_subtype", "count"),
+            push_defensive_line_runs=("push_defensive_line", "sum")
+        )
+    )
+
+    # Merge to get total minutes played per player
+    df_in_behind_merged = df_in_behind.merge(
+        eligible_players[["player_id", "total_minutes"]],
+        on="player_id",
+        how="left"
+    )
+
+    # Calculate total runs and push defensive line per 90min
+    df_in_behind_merged["total_runs_per90"] = (
+        df_in_behind_merged["total_runs"] / df_in_behind_merged["total_minutes"] * 90
+    )
+    df_in_behind_merged["push_defensive_line_per90"] = (
+        df_in_behind_merged["push_defensive_line_runs"] / df_in_behind_merged["total_minutes"] * 90
+    )
+
+    # Calculate percentage of runs that push defensive line
+    df_in_behind_merged["percentage_push_defensive_line"] = (
+        df_in_behind_merged["push_defensive_line_runs"] / df_in_behind_merged["total_runs"] * 100
+    )
+
+    return df_in_behind_merged
 
 
 # ------------------------------
