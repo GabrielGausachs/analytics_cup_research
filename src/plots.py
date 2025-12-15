@@ -847,9 +847,24 @@ def plot_scatter_ddc_distance(
     # Optionally exclude the best overall player
     df_candidates = df_candidates.drop(index=best_overall_idx, errors='ignore')
 
-    # Get the distance of each candidate to the bottom right point
+    x = df_candidates['def_density_change_per90min']
+    y = df_candidates['distance_tip_per90']
 
-    # Get the 2 players with minimum distance
+    x_norm = (x - x.min()) / (x.max() - x.min())
+    y_norm = (y - y.min()) / (y.max() - y.min())
+
+    x_right_norm = (x_right - x.min()) / (x.max() - x.min())
+    y_bottom_norm = (y_bottom - y.min()) / (y.max() - y.min())
+
+    # Normalized Euclidean distance
+    df_candidates['dist_to_bottom_right'] = np.sqrt(
+        (x_norm - x_right_norm) ** 2 +
+        (y_norm - y_bottom_norm) ** 2
+    )
+
+    # Get the 2 closest players
+    closest_players = df_candidates.nsmallest(2, 'dist_to_bottom_right')
+    best_bottom_right_indices = closest_players.index.tolist()
 
     
     best_overall_indices = [best_overall_idx[0], best_bottom_right_indices[0], best_bottom_right_indices[1]]

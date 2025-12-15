@@ -63,3 +63,20 @@ def get_player_coordinates(frame: Any, player_id: str) -> Tuple[float, float]:
         if player.player_id == player_id:
             return coord.x, coord.y
     return None, None
+
+def get_opp_team_players_coordinates(frame: Any, team_id: int) -> List[Tuple[float, float]]:
+    """
+    Get the (x, y) coordinates of all players from the opposing team in a given frame.
+
+    Args:
+        frame (Any): A frame object from the tracking data.
+        team_id (int): The ID of not the opposing team.
+
+    Returns:
+        list: List of (x, y) coordinates of the opposing team's players.
+    """
+    coordinates = []
+    for player, coord in frame.players_coordinates.items():
+        if player.team.team_id != team_id:
+            coordinates.append((coord.x, coord.y))
+    return coordinates
