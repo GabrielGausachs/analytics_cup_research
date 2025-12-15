@@ -1,4 +1,4 @@
-from .preprocessing import midfielders_obr, player_minutes_per_match
+from .preprocessing import filter_elegible_players
 from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates
 from .helpers import get_voronoi_bounded
 import numpy as np
@@ -38,6 +38,8 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
     mid_obr["space_created"] = np.nan
     mid_obr["voronoi_poly_start"] = None
     mid_obr["voronoi_poly_end"] = None
+
+    print("Number of events to process for space created:", len(mid_obr))
 
     i = 0
     for row in mid_obr.itertuples():
@@ -90,6 +92,7 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         mid_obr.at[row.Index, 'voronoi_poly_end'] = poly_end
     
     print(f"Skipped {i} rows due to missing frames")
+    print("Number of events after processing for space created:", len(mid_obr))
 
     return mid_obr
 
@@ -116,28 +119,13 @@ def metric_sc(
             - mid_obr_merged (pd.DataFrame): DataFrame with player details and space created metrics.
     """
 
-    mid_obr = midfielders_obr(dynamic_events_all)
-
-    player_minutes_df = player_minutes_per_match(all_metadata)
-
-    # Get eligible players based on min_matches and min_avg_minutes_played
-    eligible_players = (
-        player_minutes_df.groupby("player_id")
-        .agg(
-            matches=("match_id", "nunique"),
-            avg_minutes=("minutes_played", "mean"),
-            total_minutes=("minutes_played", "sum"),
-        )
-        .reset_index()
+    # Filter eligible players
+    mid_obr_filtered, eligible_players = filter_elegible_players(
+        dynamic_events_all, 
+        all_metadata,
+        min_matches,
+        min_avg_minutes_played
     )
-
-    eligible_players = eligible_players[
-        (eligible_players["matches"] >= min_matches) &
-        (eligible_players["avg_minutes"] >= min_avg_minutes_played)
-    ]
-
-    # Filter mid_obr to include only eligible players
-    mid_obr_filtered = mid_obr[mid_obr["player_id"].isin(eligible_players["player_id"])]
 
     #Calculate space created
     mid_obr_filtered = space_created(mid_obr_filtered, all_tracking)
@@ -171,6 +159,7 @@ def metric_sc(
     columns_needed = ["player_id","player_shortname","third_start","third_end","event_subtype",
                     "voronoi_area_start","voronoi_area_end", "voronoi_poly_start", "voronoi_poly_end",
                     "space_created", "space_created_per90min"]
+    
     mid_obr_merged = mid_obr_merged[columns_needed]
 
     return mid_obr_grouped, mid_obr_merged

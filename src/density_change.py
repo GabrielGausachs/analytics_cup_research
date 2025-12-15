@@ -1,4 +1,4 @@
-from .preprocessing import midfielders_obr, player_minutes_per_match
+from .preprocessing import filter_elegible_players
 from .tracking_functions import find_frame_start_end, get_player_coordinates
 import pandas as pd
 import numpy as np
@@ -94,28 +94,13 @@ def metric_ddc(
         pd.DataFrame: DataFrame with defensive density change per 90 minutes for eligible players.
     """
 
-    mid_obr = midfielders_obr(dynamic_events_all)
-
-    player_minutes_df = player_minutes_per_match(all_metadata)
-
-    # Get eligible players based on min_matches and min_avg_minutes_played
-    eligible_players = (
-        player_minutes_df.groupby("player_id")
-        .agg(
-            matches=("match_id", "nunique"),
-            avg_minutes=("minutes_played", "mean"),
-            total_minutes=("minutes_played", "sum"),
-        )
-        .reset_index()
+    # Filter eligible players
+    mid_obr_filtered, eligible_players = filter_elegible_players(
+        dynamic_events_all, 
+        all_metadata,
+        min_matches,
+        min_avg_minutes_played
     )
-
-    eligible_players = eligible_players[
-        (eligible_players["matches"] >= min_matches) &
-        (eligible_players["avg_minutes"] >= min_avg_minutes_played)
-    ]
-
-    # Filter mid_obr to include only eligible players
-    mid_obr_filtered = mid_obr[mid_obr["player_id"].isin(eligible_players["player_id"])]
 
     # Calculate defensive density change
     mid_obr_filtered = def_density_change(mid_obr_filtered, all_tracking)

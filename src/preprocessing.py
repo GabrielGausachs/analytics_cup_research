@@ -1,7 +1,7 @@
 from datetime import timedelta
 from kloppy.domain import TrackingDataset
 import pandas as pd
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 
 
 def match_minutes_played(match_tracking: TrackingDataset) -> float:
@@ -128,3 +128,49 @@ def preprocess_physical_data(physical_data: pd.DataFrame) -> pd.DataFrame:
     physical_mid = physical_mid.sort_values(by="distance_tip_per90", ascending=False).reset_index(drop=True)
 
     return physical_mid
+
+def filter_elegible_players(
+    dynamic_events_all: pd.DataFrame, 
+    all_metadata: List[Dict[str, Any]],
+    min_matches: Optional[int] = 0, 
+    min_avg_minutes_played: Optional[int] = 0
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Filter by midfielders who have played at least min_matches and min_avg_minutes_played.
+
+    Args:
+        dynamic_events_all (pd.DataFrame): DataFrame containing dynamic events data for all matches.
+        all_metadata (list): List of match metadata dictionaries.
+        min_matches (int, optional): Minimum number of matches a player must have played to be included.
+        min_avg_minutes_played (int, optional): Minimum average minutes played per match for a player to be included.
+    
+    Returns:
+        tuple: (mid_obr_filtered, eligible_players)
+            - mid_obr_filtered (pd.DataFrame): Filtered DataFrame containing midfielder off-ball events.
+            - eligible_players (pd.DataFrame): DataFrame of eligible players with their match and minutes played stats.
+    """
+
+    mid_obr = midfielders_obr(dynamic_events_all)
+
+    player_minutes_df = player_minutes_per_match(all_metadata)
+
+    # Get eligible players based on min_matches and min_avg_minutes_played
+    eligible_players = (
+        player_minutes_df.groupby("player_id")
+        .agg(
+            matches=("match_id", "nunique"),
+            avg_minutes=("minutes_played", "mean"),
+            total_minutes=("minutes_played", "sum"),
+        )
+        .reset_index()
+    )
+
+    eligible_players = eligible_players[
+        (eligible_players["matches"] >= min_matches) &
+        (eligible_players["avg_minutes"] >= min_avg_minutes_played)
+    ]
+
+    # Filter mid_obr to include only eligible players
+    mid_obr_filtered = mid_obr[mid_obr["player_id"].isin(eligible_players["player_id"])]
+
+    return mid_obr_filtered, eligible_players
