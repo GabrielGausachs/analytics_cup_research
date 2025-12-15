@@ -842,10 +842,9 @@ def plot_scatter_ddc_distance(
     # Get the bottom right point
     y_bottom = y_min - 1500
     x_right = x_max + 5
-    bottom_right_point = (x_right,y_bottom)
 
     # Optionally exclude the best overall player
-    df_candidates = df_candidates.drop(index=best_overall_idx, errors='ignore')
+    df_candidates = df_ddc_pd.drop(index=best_overall_idx, errors='ignore')
 
     x = df_candidates['def_density_change_per90min']
     y = df_candidates['distance_tip_per90']
@@ -896,7 +895,7 @@ def plot_scatter_ddc_distance(
 
         ax_plot.text(
         df_ddc_pd.loc[idx, 'def_density_change_per90min'],
-        df_ddc_pd.loc[idx, 'distance_tip_per90'] - 100,
+        df_ddc_pd.loc[idx, 'distance_tip_per90'] - 150,
         df_ddc_pd.loc[idx, 'player_short_name'],
         fontsize=10,
         color='black',

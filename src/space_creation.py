@@ -41,7 +41,6 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
 
     print("Number of events to process for space created:", len(mid_obr))
 
-    i = 0
     for row in mid_obr.itertuples():
 
         # Find start and end frames
@@ -49,7 +48,6 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         if start_frame is None or end_frame is None:
             # remove row from mid_obr to avoid unreliable analysis
             mid_obr.drop(index=row.Index, inplace=True)
-            i+=1
             continue
 
         # Get player index + all positions
@@ -60,6 +58,8 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
 
         if player_coord is None:
             print(f"Player {row.player_id} not found in start frame of match {row.match_id}")
+            mid_obr.drop(index=row.Index, inplace=True)
+            continue
         
         players_start.append(player_coord)
         
@@ -91,7 +91,6 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         mid_obr.at[row.Index, 'voronoi_poly_start'] = poly_start
         mid_obr.at[row.Index, 'voronoi_poly_end'] = poly_end
     
-    print(f"Skipped {i} rows due to missing frames")
     print("Number of events after processing for space created:", len(mid_obr))
 
     return mid_obr
@@ -130,6 +129,13 @@ def metric_sc(
     #Calculate space created
     mid_obr_filtered = space_created(mid_obr_filtered, all_tracking)
 
+    # filter the dataframe to only specific columns needed for analysis
+    columns_needed = ["player_id","player_name","third_start","third_end","event_subtype",
+                    "voronoi_area_start","voronoi_area_end", "voronoi_poly_start", "voronoi_poly_end",
+                    "space_created"]
+    
+    mid_obr_filtered = mid_obr_filtered[columns_needed]
+
     # Merge to get total minutes played per player
     mid_obr_merged = mid_obr_filtered.merge(
         eligible_players[["player_id", "total_minutes"]],
@@ -147,19 +153,5 @@ def metric_sc(
     mid_obr_grouped["space_created_per90min"] = (
         mid_obr_grouped["space_created"] / mid_obr_grouped["total_minutes"]
     ) * 90
-
-    # Add space created per 90 min to eligible players dataframe
-    mid_obr_merged = eligible_players.merge(
-        mid_obr_grouped[["player_id", "space_created_per90min"]],
-        on="player_id",
-        how="left"
-    )
-
-    # filter the dataframe to only specific columns needed for analysis
-    columns_needed = ["player_id","player_shortname","third_start","third_end","event_subtype",
-                    "voronoi_area_start","voronoi_area_end", "voronoi_poly_start", "voronoi_poly_end",
-                    "space_created", "space_created_per90min"]
-    
-    mid_obr_merged = mid_obr_merged[columns_needed]
 
     return mid_obr_grouped, mid_obr_merged

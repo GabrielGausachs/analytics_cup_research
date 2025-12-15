@@ -24,6 +24,8 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
     mid_obr = mid_obr.copy()
     mid_obr["def_density_change"] = np.nan
 
+    print("Number of events to process for defensive density change:", len(mid_obr))
+
     for row in mid_obr.itertuples():
         # Find start and end frames
         start_frame, end_frame = find_frame_start_end(row, all_tracking)
@@ -37,6 +39,8 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
 
         if player_coord is None:
             print(f"Player {row.player_id} not found in start frame of match {row.match_id}")
+            mid_obr.drop(index=row.Index, inplace=True)
+            continue
 
         # Start frame distances
         opponents_start = np.array([[c.x, c.y] for p, c in start_frame.players_coordinates.items()
@@ -48,13 +52,15 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
             avg_distance_start = close_start.mean() if len(close_start) > 0 else 10.0
         else:
             print(f"No opponents found in start frame of match {row.match_id}")
-            avg_distance_start = 10.0
+            mid_obr.drop(index=row.Index, inplace=True)
+            continue
 
         # Get player coordinates at end frame
         player_coord = get_player_coordinates(end_frame, str(row.player_id))
 
         if player_coord is None:
             print(f"Player {row.player_id} not found in end frame of match {row.match_id}")
+            mid_obr.drop(index=row.Index, inplace=True)
             continue
 
         # End frame distances
@@ -67,10 +73,13 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
             avg_distance_end = close_end.mean() if len(close_end) > 0 else 10.0
         else:
             print(f"No opponents found in end frame of match {row.match_id}")
-            avg_distance_end = 10.0
+            mid_obr.drop(index=row.Index, inplace=True)
+            continue
 
         # Store results in mid_obr DataFrame
         mid_obr.at[row.Index, 'def_density_change'] = avg_distance_end - avg_distance_start
+    
+    print("Number of events after cleaning for defensive density change:", len(mid_obr))
         
     return mid_obr
 
