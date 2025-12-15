@@ -1,45 +1,20 @@
 from .preprocessing import midfielders_obr, player_minutes_per_match
 from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates
+from .helpers import get_voronoi_bounded
 import numpy as np
-from shapely.geometry import Polygon, box
-from scipy.spatial import Voronoi
-from typing import List, Dict, Any, Optional
+from shapely.geometry import box
+from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
 from kloppy.domain import TrackingDataset
 
-def get_voronoi_bounded(points, index, pitch_bounds):
-    # Add padding points to bound Voronoi
-    padding = np.array([
-            [-1000, -1000],
-            [1000, 1000],
-            [1000, -1000],
-            [-1000, 1000]
-    ])
-    points = np.vstack([points, padding])
 
-    # Compute Voronoi
-    vor = Voronoi(points)
-
-    # Get region of target player
-    region_index = vor.point_region[index]
-    region = vor.regions[region_index]
-
-    # Collect finite vertices
-    finite_vertices = [vor.vertices[i] for i in region if i != -1]
-
-    poly = Polygon(finite_vertices)
-
-    # Clip with pitch bounds
-    poly_clipped = poly.intersection(pitch_bounds)
-
-    if poly_clipped.is_empty:
-        raise ValueError("Clipped polygon is empty")
-
-    return poly_clipped
 
 def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) -> pd.DataFrame:
     """
-    Calculate space created metric for off-ball events.
+    Calculate space created during midfield off-ball runs using Voronoi diagrams. 
+    It filters events by duration <= 5 seconds. Calculate the Voronoi area at the 
+    start location of the player that does the run in the start and end frame of the event, 
+    and computes the difference as space created. 
 
     Args:
         mid_obr (pd.DataFrame): DataFrame of midfield off-ball events.
@@ -91,19 +66,16 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
 
         players_start = np.array(players_start)
 
-        # 1️⃣ Voronoi at start frame
+        # Voronoi at start frame
         poly_start = get_voronoi_bounded(players_start, 0, pitch_bounds)
         area_start = poly_start.area if poly_start else np.nan
 
-        # 2️⃣ Voronoi at end frame but **at the original start location**
+        # Voronoi at end frame
         players_end = []
-        for idx, (player, coord) in enumerate(start_frame.players_coordinates.items()):
-            if player.player_id == str(row.player_id):
-                players_end.append(players_start[0])
+        players_end.append(player_coord)  # same location as start frame
         
-        for idx, (player, coord) in enumerate(end_frame.players_coordinates.items()):
-            if team_id != player.team.team_id:
-                players_end.append([coord.x, coord.y])
+        # get all the opponents coordinates
+        players_end.extend(get_opp_team_players_coordinates(end_frame, row.team_id))
 
         players_end = np.array(players_end)
 
@@ -111,15 +83,15 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         area_end = poly_end.area if poly_end else np.nan
 
         # Store in DataFrame
-        mid_obe.at[row.Index, 'voronoi_area_start'] = area_start
-        mid_obe.at[row.Index, 'voronoi_area_end'] = area_end
-        mid_obe.at[row.Index, 'space_created'] = area_end - area_start
-        mid_obe.at[row.Index, 'voronoi_poly_start'] = poly_start
-        mid_obe.at[row.Index, 'voronoi_poly_end'] = poly_end
+        mid_obr.at[row.Index, 'voronoi_area_start'] = area_start
+        mid_obr.at[row.Index, 'voronoi_area_end'] = area_end
+        mid_obr.at[row.Index, 'space_created'] = area_end - area_start
+        mid_obr.at[row.Index, 'voronoi_poly_start'] = poly_start
+        mid_obr.at[row.Index, 'voronoi_poly_end'] = poly_end
     
     print(f"Skipped {i} rows due to missing frames")
 
-    return mid_obe
+    return mid_obr
 
 
 def metric_sc(
@@ -127,7 +99,7 @@ def metric_sc(
     all_tracking: List[TrackingDataset], 
     all_metadata: List[Dict[str, Any]],
     min_matches: Optional[int] = 0, 
-    min_avg_minutes_played: Optional[int] = 0)-> pd.DataFrame:
+    min_avg_minutes_played: Optional[int] = 0)-> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Computes space created per 90 minutes for midfielders performing off-ball runs.
 
@@ -139,7 +111,9 @@ def metric_sc(
         min_avg_minutes_played (int, optional): Minimum average minutes played per match for a player to be included.
     
     Returns:
-        pd.DataFrame: DataFrame with space created per 90 minutes for eligible players.
+        tuple: (mid_obr_grouped, mid_obr_merged)
+            - mid_obr_grouped (pd.DataFrame): DataFrame grouped by player with total space created, total minutes and space created per 90 minutes.
+            - mid_obr_merged (pd.DataFrame): DataFrame with player details and space created metrics.
     """
 
     mid_obr = midfielders_obr(dynamic_events_all)
@@ -168,4 +142,35 @@ def metric_sc(
     #Calculate space created
     mid_obr_filtered = space_created(mid_obr_filtered, all_tracking)
 
-    pass
+    # Merge to get total minutes played per player
+    mid_obr_merged = mid_obr_filtered.merge(
+        eligible_players[["player_id", "total_minutes"]],
+        on="player_id",
+        how="left"
+    )
+
+    # Group by player and calculate total space created
+    mid_obr_grouped = mid_obr_merged.groupby("player_id").agg({
+        "space_created": "sum",
+        "total_minutes": "first"
+    }).reset_index()
+
+    # Calculate space created per 90 minutes
+    mid_obr_grouped["space_created_per90min"] = (
+        mid_obr_grouped["space_created"] / mid_obr_grouped["total_minutes"]
+    ) * 90
+
+    # Add space created per 90 min to eligible players dataframe
+    mid_obr_merged = eligible_players.merge(
+        mid_obr_grouped[["player_id", "space_created_per90min"]],
+        on="player_id",
+        how="left"
+    )
+
+    # filter the dataframe to only specific columns needed for analysis
+    columns_needed = ["player_id","player_shortname","third_start","third_end","event_subtype",
+                    "voronoi_area_start","voronoi_area_end", "voronoi_poly_start", "voronoi_poly_end",
+                    "space_created", "space_created_per90min"]
+    mid_obr_merged = mid_obr_merged[columns_needed]
+
+    return mid_obr_grouped, mid_obr_merged
