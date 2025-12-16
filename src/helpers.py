@@ -1,6 +1,7 @@
 import numpy as np
 from shapely.geometry import Polygon
 from scipy.spatial import Voronoi
+from typing import Tuple
 
 def entropy(x: np.ndarray) -> float:
     """
@@ -73,3 +74,18 @@ def get_voronoi_bounded(
         raise ValueError("Clipped polygon is empty")
 
     return poly_clipped
+
+def whisker_bounds_numpy(x: np.ndarray) -> Tuple[float, float]:
+    """
+    Compute the lower and upper whisker bounds for outlier detection using the IQR method.
+
+    Args:
+        x (np.ndarray): 1D array of numeric values.
+
+    Returns:
+        Tuple[float, float]: Lower and upper whisker bounds.
+    """
+    x = x[~np.isnan(x)]
+    q1, q3 = np.percentile(x, [25, 75])
+    iqr = q3 - q1
+    return q1 - 1.5 * iqr, q3 + 1.5 * iqr

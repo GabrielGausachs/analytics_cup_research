@@ -1,5 +1,5 @@
-from .preprocessing import filter_eligible_players
-from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates
+from .preprocessing import filter_eligible_players, remove_outliers
+from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates, get_rest_players_coordinates
 from .helpers import get_voronoi_bounded
 import numpy as np
 from shapely.geometry import box
@@ -54,7 +54,7 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         players_start = []
 
         # Get player coordinates at start frame
-        player_coord = get_player_coordinates(start_frame, str(row.player_id))
+        player_coord = get_player_coordinates(start_frame, row.player_id)
 
         if player_coord is None:
             print(f"Player {row.player_id} not found in start frame of match {row.match_id}")
@@ -64,7 +64,7 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         players_start.append(player_coord)
         
         # get all the opponents coordinates
-        players_start.extend(get_opp_team_players_coordinates(start_frame, row.team_id))
+        players_start.extend(get_rest_players_coordinates(start_frame, row.player_id))
 
         players_start = np.array(players_start)
 
@@ -77,7 +77,7 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         players_end.append(player_coord)  # same location as start frame
         
         # get all the opponents coordinates
-        players_end.extend(get_opp_team_players_coordinates(end_frame, row.team_id))
+        players_end.extend(get_rest_players_coordinates(end_frame, row.player_id))
 
         players_end = np.array(players_end)
 
@@ -126,15 +126,25 @@ def metric_sc(
         min_avg_minutes_played
     )
 
-    #Calculate space created
+    #Calculate space created for only Build Up Runs
+    buildupruns = ["coming_short", "pulling_half_space", "pulling_wide", "dropping_off"]
+    mid_obr_filtered = mid_obr_filtered[mid_obr_filtered["event_subtype"].isin(buildupruns)].copy()
+    print("Number of events after filtering for Build Up Runs:", len(mid_obr_filtered))
     mid_obr_filtered = space_created(mid_obr_filtered, all_tracking)
+    print("Number of events after calculating space created for Build Up Runs:", len(mid_obr_filtered))
 
+    # Remove outliers based on space created
+    mid_obr_filtered = remove_outliers(mid_obr_filtered, cols=["voronoi_area_start", "voronoi_area_end", "space_created"], subtype_col="event_subtype")
+    print("Number of events after removing outliers for space created:", len(mid_obr_filtered))
+
+    """
     # filter the dataframe to only specific columns needed for analysis
-    columns_needed = ["player_id","player_name","third_start","third_end","event_subtype",
+    columns_needed = ["player_id","player_name","event_id","match_id","third_start","third_end","event_subtype",
                     "voronoi_area_start","voronoi_area_end", "voronoi_poly_start", "voronoi_poly_end",
                     "space_created"]
     
     mid_obr_filtered = mid_obr_filtered[columns_needed]
+    """
 
     # Merge to get total minutes played per player
     mid_obr_merged = mid_obr_filtered.merge(

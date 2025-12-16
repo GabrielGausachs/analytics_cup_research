@@ -35,7 +35,7 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
             continue
         
         # Get player coordinates at start frame
-        player_coord = get_player_coordinates(start_frame, str(row.player_id))
+        player_coord = get_player_coordinates(start_frame, row.player_id)
 
         if player_coord is None:
             print(f"Player {row.player_id} not found in start frame of match {row.match_id}")
@@ -56,7 +56,7 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
             continue
 
         # Get player coordinates at end frame
-        player_coord = get_player_coordinates(end_frame, str(row.player_id))
+        player_coord = get_player_coordinates(end_frame, row.player_id)
 
         if player_coord is None:
             print(f"Player {row.player_id} not found in end frame of match {row.match_id}")

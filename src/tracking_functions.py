@@ -48,7 +48,7 @@ def find_frame_start_end(row: pd.Series, all_tracking: List[TrackingDataset]) ->
 
     return start_frame, end_frame
 
-def get_player_coordinates(frame: Any, player_id: str) -> Tuple[float, float]:
+def get_player_coordinates(frame: Any, player_id: int) -> Tuple[float, float]:
     """
     Get the (x, y) coordinates of a player in a given frame.
 
@@ -60,7 +60,7 @@ def get_player_coordinates(frame: Any, player_id: str) -> Tuple[float, float]:
         tuple: (x, y) coordinates of the player if found, else (None, None).
     """
     for player, coord in frame.players_coordinates.items():
-        if player.player_id == player_id:
+        if player.player_id == str(player_id):
             return coord.x, coord.y
     return None, None
 
@@ -78,5 +78,39 @@ def get_opp_team_players_coordinates(frame: Any, team_id: int) -> List[Tuple[flo
     coordinates = []
     for player, coord in frame.players_coordinates.items():
         if player.team.team_id != team_id:
+            coordinates.append((coord.x, coord.y))
+    return coordinates
+
+def get_team_players_coordinates(frame: Any, team_id: int) -> List[Tuple[float, float]]:
+    """
+    Get the (x, y) coordinates of all players from a specific team in a given frame.
+
+    Args:
+        frame (Any): A frame object from the tracking data.
+        team_id (int): The ID of the team.
+
+    Returns:
+        list: List of (x, y) coordinates of the team's players.
+    """
+    coordinates = []
+    for player, coord in frame.players_coordinates.items():
+        if player.team.team_id == team_id:
+            coordinates.append((coord.x, coord.y))
+    return coordinates
+
+def get_rest_players_coordinates(frame: Any, exclude_player_id: int) -> List[Tuple[float, float]]:
+    """
+    Get the (x, y) coordinates of all players except the specified player in a given frame.
+
+    Args:
+        frame (Any): A frame object from the tracking data.
+        exclude_player_id (str): The ID of the player to exclude.
+
+    Returns:
+        list: List of (x, y) coordinates of the other players.
+    """
+    coordinates = []
+    for player, coord in frame.players_coordinates.items():
+        if player.player_id != str(exclude_player_id):
             coordinates.append((coord.x, coord.y))
     return coordinates

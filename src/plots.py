@@ -375,7 +375,7 @@ def radar_plot(
     values = [round(v, 1) for v in values]
 
     params = [subtype_names_map[subtype] for subtype in df_percentile.columns]
-    slice_colors = ["#1A78CF"] * 2 + ["#FF9300"] * 3 + ["#D70232"] * 5
+    slice_colors = ["#1A78CF"] * 2 + ["#FF9300"] * 4 + ["#D70232"] * 4
     text_colors = ["#000000"] * 5 + ["#F2F2F2"] * 5
 
     baker = PyPizza(
@@ -895,7 +895,7 @@ def plot_scatter_ddc_distance(
 
         ax_plot.text(
         df_ddc_pd.loc[idx, 'def_density_change_per90min'],
-        df_ddc_pd.loc[idx, 'distance_tip_per90'] - 150,
+        df_ddc_pd.loc[idx, 'distance_tip_per90'] - 175,
         df_ddc_pd.loc[idx, 'player_short_name'],
         fontsize=10,
         color='black',
@@ -1045,4 +1045,84 @@ def plot_scatter_ddc_distance(
     )
     
     plt.tight_layout()
+    plt.show()
+
+
+
+import matplotlib.pyplot as plt
+from mplsoccer import Pitch
+def plot_voronoi(pitch, all_tracking, event):
+
+    print(f"Plotting event ID: {event.event_id}, Player ID: {event.player_id}, Subtype: {event.event_subtype}")
+
+    # plot start frame
+
+    fig, ax_start = pitch.grid(figheight=8, endnote_height=0, title_height=0)
+
+    x, y = event.voronoi_poly_start.exterior.xy
+    ax_start.fill(x, y, color='blue', alpha=0.3, label='Start frame')
+
+    start_frame, end_frame = find_frame_start_end(event, all_tracking)
+    if start_frame is None or end_frame is None:
+        print("No tracking data available for this event.")
+        return
+    
+    # runner coordinates
+    player_coord = get_player_coordinates(start_frame, event.player_id)
+
+    # opponent coordinates
+    opp_coords = get_opp_team_players_coordinates(start_frame, event.team_id)
+
+    # team players coordinates
+    team_coords = get_team_players_coordinates(start_frame, event.team_id)
+
+    # plot opponents
+    for coord in opp_coords:
+        ax_start.scatter(coord[0], coord[1], color='red', s=50, zorder=5)  # Opponent locations
+
+    # plot team players
+    for coord in team_coords:
+        ax_start.scatter(coord[0], coord[1], color='green', s=50, zorder=5)  # Team player locations
+
+     # plot runner
+    ax_start.scatter(player_coord[0], player_coord[1], color='yellow', s=50, zorder=5, label='Runner')  # Runner location
+
+
+    # plot ball
+    ball_coord = start_frame.ball_coordinates
+    ax_start.scatter(ball_coord.x, ball_coord.y, color='white', s=30, zorder=5, label='Ball')
+
+    ax_start.legend(loc='upper right')
+
+    plt.show()
+
+    # --- END FRAME ---
+    fig_end, ax_end = pitch.grid(figheight=8, endnote_height=0, title_height=0)
+
+    x_e, y_e = event.voronoi_poly_end.exterior.xy
+    ax_end.fill(x_e, y_e, color='green', alpha=0.3, label='End frame')
+
+    player_coord_end = get_player_coordinates(end_frame, event.player_id)
+    opp_coords_end = get_opp_team_players_coordinates(end_frame, event.team_id)
+    team_coords_end = get_team_players_coordinates(end_frame, event.team_id)
+
+
+    # plot opponents
+    for coord in opp_coords_end:
+        ax_end.scatter(coord[0], coord[1], color='red', s=50, zorder=5)  # Opponent locations
+    
+    # plot team players
+    for coord in team_coords_end:
+        ax_end.scatter(coord[0], coord[1], color='green', s=50, zorder=5)  # Team player locations
+    
+    # plot runner
+    ax_end.scatter(player_coord_end[0], player_coord_end[1], color='yellow', s=50, zorder=5, label='Runner')  # Runner location
+    
+    ax_end.scatter(player_coord[0], player_coord[1], color='black', s=50, zorder=5, label='Start position')
+
+    ball_end = end_frame.ball_coordinates
+    ax_end.scatter(ball_end.x, ball_end.y, color='white', s=30, zorder=5, label='Ball')
+
+    ax_end.legend(loc='upper right')
+    ax_end.set_title("End frame")
     plt.show()

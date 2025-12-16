@@ -2,6 +2,8 @@ from datetime import timedelta
 from kloppy.domain import TrackingDataset
 import pandas as pd
 from typing import List, Dict, Any, Optional, Tuple
+import numpy as np
+from .helpers import whisker_bounds_numpy
 
 
 def match_minutes_played(match_tracking: TrackingDataset) -> float:
@@ -174,3 +176,43 @@ def filter_eligible_players(
     mid_obr_filtered = mid_obr[mid_obr["player_id"].isin(eligible_players["player_id"])]
 
     return mid_obr_filtered, eligible_players
+
+
+def remove_outliers(df: pd.DataFrame, cols: List[str], subtype_col: str = "event_subtype") -> pd.DataFrame:
+    """
+    Removes row-wise outliers per event subtype using IQR (boxplot) method.
+
+    Args:
+        df (pd.DataFrame): DataFrame with event-level metrics.
+        cols (List[str]): List of numeric columns to check for outliers.
+        subtype_col (str): Column indicating the event subtype.
+
+    Returns:
+        pd.DataFrame: DataFrame with outlier rows removed.
+    """
+
+    X = df[cols].to_numpy()
+    subtypes = df[subtype_col].to_numpy()
+    event_subtype_arrays = {s: X[subtypes == s] for s in np.unique(subtypes)}
+    
+
+    col_idx = {c: i for i, c in enumerate(cols)}
+
+    outlier_rows_per_subtype = {}
+    for subtype, arr in event_subtype_arrays.items():
+        row_outlier_mask = np.zeros(arr.shape[0], dtype=bool)
+        for idx in col_idx.values():
+            lower, upper = whisker_bounds_numpy(arr[:, idx])
+            row_outlier_mask |= (arr[:, idx] < lower) | (arr[:, idx] > upper)
+        row_indices = np.where(subtypes == subtype)[0]
+        outlier_rows_per_subtype[subtype] = row_indices[row_outlier_mask]
+
+    # Combine all outlier indices
+    if len(outlier_rows_per_subtype) > 0:
+        all_outlier_indices = np.concatenate(list(outlier_rows_per_subtype.values()))
+    else:
+        all_outlier_indices = np.array([], dtype=int)
+
+    # Remove outliers
+    df_clean = df.drop(index=df.index[all_outlier_indices]).copy()
+    return df_clean
