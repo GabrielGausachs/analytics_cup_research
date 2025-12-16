@@ -348,9 +348,10 @@ def obr_xthreat(
     dynamic_events_all: pd.DataFrame,
     all_metadata: List[Dict[str, Any]],
     min_matches: Optional[int] = 0, 
-    min_avg_minutes_played: Optional[int] = 0)-> pd.DataFrame:
+    min_avg_minutes_played: Optional[int] = 0) -> pd.DataFrame:
     """
-    Computes xthreat per90min and number of dangerous not difficult runs per90min.
+    Computes xThreat contribution, total runs, xpass completion, and number of dangerous not difficult runs 
+    per 90 minutes for midfielders runs. Also provides per-third breakdowns.
 
     Args:
         dynamic_events_all (pd.DataFrame): Dynamic events DataFrame.
@@ -358,58 +359,92 @@ def obr_xthreat(
         min_matches (int, optional): Minimum number of matches a player must have played to be included.
         min_avg_minutes_played (int, optional): Minimum average minutes played per match for a player to be included.
 
-    Returns:
-        pd.DataFrame: DataFrame with columns:['player_id', 'total_runs', 'xthreat', 'dangerous_not_difficult', 'total_minutes','total_runs_per90', 'xthreat_per90', 'd_not_d_per90']
-        
+    Returns: 
+        tuple: (df_player, df_thirds)
+            - df_player (pd.DataFrame): DataFrame grouped by player.
+            - df_thirds (pd.DataFrame): DataFrame grouped by player and third.
+
     """
 
+    
     mid_obr_filtered, eligible_players = filter_eligible_players(
         dynamic_events_all, 
         all_metadata, 
         min_matches, 
-        min_avg_minutes_played)
-    
-    # Filter by event subtypes 'progression' and 'direct'
-    p_d_runs = mid_obr_filtered.copy()
-    p_d_runs = p_d_runs[p_d_runs["event_subtype"].isin(["behind", "support", "overlap", "underlap", "cross_receiver", "run_ahead_of_the_ball"])]
+        min_avg_minutes_played
+    )
 
-    # Group by player_id to get total runs xthreat and dangerous not difficult runs
-    df_xthreat = (
+    # Filter by progression and direct type of runs
+    valid_subtypes = [
+        "behind", "support", "overlap", "underlap",
+        "cross_receiver", "run_ahead_of_the_ball"
+    ]
+
+    p_d_runs = mid_obr_filtered[
+        mid_obr_filtered["event_subtype"].isin(valid_subtypes)
+    ].copy()
+
+    # Calculate total metrics per player
+    df_player = (
         p_d_runs.groupby("player_id", as_index=False)
-            .agg(
-                total_runs=("event_subtype", "count"),
-                xthreat=("xthreat", "sum"),
-                dangerous_not_difficult=(
-                    lambda x: ((p_d_runs.loc[x.index, "dangerous"] == True) &
-                                (p_d_runs.loc[x.index, "difficult_pass_target"] == False)).sum()
+        .agg(
+            total_runs=("event_subtype", "count"),
+            xthreat=("xthreat", "sum"),
+            xpass_completion=("xpass_completion", "sum"),
+            dangerous_not_difficult=(
+                "event_subtype",
+                lambda x: (
+                    (p_d_runs.loc[x.index, "dangerous"]) &
+                    (~p_d_runs.loc[x.index, "difficult_pass_target"])
+                    ).sum()
                 )
             )
     )
-    
-    # Merge to get total minutes played per player
-    df_xthreat_merged = df_xthreat.merge(
+
+    # Calculate per-player per-third metrics
+    df_thirds = (
+        p_d_runs.groupby(["player_id", "third_end"], as_index=False)
+        .agg(
+            total_runs=("event_subtype", "count"),
+            xthreat=("xthreat", "sum"),
+            xpass_completion=("xpass_completion", "sum"),
+            dangerous_not_difficult=(
+                "event_subtype",
+                lambda x: (
+                    (p_d_runs.loc[x.index, "dangerous"]) &
+                    (~p_d_runs.loc[x.index, "difficult_pass_target"])
+                    ).sum()
+                )
+            )
+    )
+
+    # Merge to get total minutes
+    df_player = df_player.merge(
         eligible_players[["player_id", "total_minutes"]],
         on="player_id",
         how="left"
     )
 
-    # Calculate total runs per 90min
-    df_xthreat_merged["total_runs_per90"] = (
-        df_xthreat_merged["total_runs"] / df_xthreat_merged["total_minutes"] * 90
+    df_thirds = df_thirds.merge(
+        eligible_players[["player_id", "total_minutes"]],
+        on="player_id",
+        how="left"
     )
 
-    # Calculate xthreat per 90min
-    df_xthreat_merged["xthreat_per90"] = (
-        df_xthreat_merged["xthreat"] / df_xthreat_merged["total_minutes"] * 90
-    )
 
-    # Calculate number of dangerous not difficult runs per 90min
-    df_xthreat_merged["d_not_d_per90"] = (
-        df_xthreat_merged["dangerous_not_difficult"] / df_xthreat_merged["total_minutes"] * 90
-    )
+    # Create per90 metrics
+    per90_cols = [
+        "total_runs",
+        "xthreat",
+        "xpass_completion",
+        "dangerous_not_difficult"
+    ]
 
-    return df_xthreat_merged
+    for col in per90_cols:
+        df_thirds[f"{col}_per90"] = df_thirds[col] / df_thirds["total_minutes"] * 90
+        df_player[f"{col}_per90"] = df_player[col] / df_player["total_minutes"] * 90
 
+    return df_player, df_thirds
 
 # ------------------------------
 # High-level convenience plotting functions

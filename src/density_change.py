@@ -90,7 +90,7 @@ def metric_ddc(
     min_matches: Optional[int] = 0, 
     min_avg_minutes_played: Optional[int] = 0)-> pd.DataFrame:
     """
-    Computes defensive density change per 90 minutes for midfielders performing off-ball runs.
+    Computes defensive density change per 90 minutes for midfielders performing off-ball runs. Also provides per-third breakdowns.
 
     Args:
         dynamic_events_all (pd.DataFrame): DataFrame containing dynamic events data for all matches.
@@ -100,7 +100,10 @@ def metric_ddc(
         min_avg_minutes_played (int, optional): Minimum average minutes played per match for a player to be included.    
 
     Returns:
-        pd.DataFrame: DataFrame with defensive density change per 90 minutes for eligible players.
+        tuple: (mid_obr_player_grouped, mid_obr_p_t_grouped)
+            - mid_obr_player_grouped (pd.DataFrame): DataFrame grouped by player.
+            - mid_obr_p_t_grouped (pd.DataFrame): DataFrame grouped by player and third.
+
     """
 
     # Filter eligible players
@@ -121,19 +124,35 @@ def metric_ddc(
         how="left"
     )
 
-    # Group by player and calculate total defensive density change
-    mid_obr_grouped = mid_obr_merged.groupby("player_id").agg({
-        "def_density_change": "sum",
-        "total_minutes": "first"
-    }).reset_index()
+    # Calculate per-player total defensive density change
+    mid_obr_player_grouped = (
+        mid_obr_merged.groupby("player_id", as_index=False)
+        .agg(
+            def_density_change=("def_density_change", "sum"),
+            total_minutes=("total_minutes", "first")
+            )
+        )
 
+    # Calculate per-player per-third metrics
+    mid_obr_p_t_grouped = (
+        mid_obr_merged.groupby(["player_id", "third_end"], as_index=False)
+        .agg(
+            def_density_change=("def_density_change", "sum"),
+            total_minutes=("total_minutes", "first")
+            )
+        )
+    
     # Calculate defensive density change per 90 minutes
-    mid_obr_grouped["def_density_change_per90min"] = (
-        mid_obr_grouped["def_density_change"] / mid_obr_grouped["total_minutes"]
+    mid_obr_player_grouped["def_density_change_per90min"] = (
+        mid_obr_player_grouped["def_density_change"] / mid_obr_player_grouped["total_minutes"]
     ) * 90
 
-    return mid_obr_grouped
+    # Calculate per-third defensive density change per 90 minutes
+    mid_obr_p_t_grouped["def_density_change_per90min"] = (
+        mid_obr_p_t_grouped["def_density_change"] / mid_obr_p_t_grouped["total_minutes"]
+    ) * 90
 
+    return mid_obr_player_grouped, mid_obr_p_t_grouped
 
 def ddc_merged_physical_data(
     mid_obr_ddc: pd.DataFrame,
@@ -181,7 +200,7 @@ def def_density_change_analysis(
     mid_pd = get_physical_data_processed(data_path)
 
 
-    mid_obr_ddc = metric_ddc(
+    mid_obr_ddc, _ = metric_ddc(
         dynamic_events_all, 
         all_tracking, 
         all_metadata,
