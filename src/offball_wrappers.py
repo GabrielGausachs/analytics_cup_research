@@ -1,11 +1,11 @@
 import pandas as pd
 from kloppy.domain import TrackingDataset
 
-from .plots import plot_total_and_untargeted_per90, subtype_phase_bubble_plot, plot_multiple_radar_plots_teams, plot_multiple_radar_plots_players
+from .plots import plot_total_and_untargeted_per90, subtype_phase_bubble_plot, plot_multiple_radar_plots_teams, plot_multiple_radar_plots_players, plot_violin_xthreat
 from .preprocessing import match_minutes_played, player_minutes_per_match, filter_eligible_players
 from typing import List, Optional, Dict, Any, Tuple
 from .aggregates import off_ball_event_agg, normalize_per90min
-from .helpers import entropy
+from .helpers import entropy, z_score
 
 phase_order = [
         "build_up",
@@ -510,7 +510,7 @@ def a_obr_per_subtype_per_team(
     season: Optional[str] = "2024/2025",
     competition: Optional[str] = "Australian A-League",
     total_matches: Optional[int] = 10
-    ) -> pd.DataFrame:
+    ) -> None:
     """
     Computes off-ball runs stats per subtype and team per 90 minutes of play and plots a radar plot for selected teams.
 
@@ -546,7 +546,7 @@ def a_obr_per_subtype_per_player(
     total_matches: Optional[int] = 10,
     min_matches: Optional[int] = 0,
     min_avg_minutes_played: Optional[int] = 0
-    ) -> pd.DataFrame:
+    ) -> None:
     """
     Computes off-ball runs stats per subtype and player per 90 minutes of play and plots a radar plot for selected players.
 
@@ -575,3 +575,45 @@ def a_obr_per_subtype_per_player(
             min_avg_minutes_played=min_avg_minutes_played)
     else:
         raise ValueError("Please provide a list of player names to plot radar plots.")
+    
+def a_xthreat_per_third(
+    dynamic_events_all: pd.DataFrame,
+    all_metadata: List[Dict[str, Any]],
+    season: Optional[str] = "2024/2025",
+    competition: Optional[str] = "Australian A-League",
+    total_matches: Optional[int] = 10,
+    min_matches: Optional[int] = 0,
+    min_avg_minutes_played: Optional[int] = 0
+    ) -> None:
+    """
+    Computes xThreat contribution per third for midfielders off-ball runs,
+    calculates z-scores and plot the results.
+
+    Args:
+        dynamic_events_all (pd.DataFrame): DataFrame containing dynamic event data.
+        all_metadata (List[Dict[str, Any]]): List of metadata dictionaries for all matches.
+        season (Optional[str]): Season string for annotation.
+        competition (Optional[str]): Competition string for annotation.
+        total_matches (Optional[int]): Number of matches for annotation.
+        min_matches (Optional[int]): Minimum number of matches a player must have played to be included.
+        min_avg_minutes_played (Optional[int]): Minimum average minutes played per match for a player to be included.
+    """
+
+    _ , df_thirds = obr_xthreat(
+        dynamic_events_all,
+        all_metadata,
+        min_matches,
+        min_avg_minutes_played)
+    
+    df_thirds = z_score(
+        df_thirds,
+        value_col="xthreat_per90",
+        group_col="third_end")
+    
+    plot_violin_xthreat(
+        df_thirds,
+        season=season,
+        competition=competition,
+        total_matches=total_matches,
+        min_matches=min_matches,
+        min_avg_minutes_played=min_avg_minutes_played)

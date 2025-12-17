@@ -89,3 +89,34 @@ def whisker_bounds_numpy(x: np.ndarray) -> Tuple[float, float]:
     q1, q3 = np.percentile(x, [25, 75])
     iqr = q3 - q1
     return q1 - 1.5 * iqr, q3 + 1.5 * iqr
+
+import pandas as pd
+
+def z_score(
+    df: pd.DataFrame,
+    value_col: str,
+    group_col: str,
+    out_col: str = "z_score"
+    ) -> pd.DataFrame:
+    """
+    Compute z-scores of a column within groups.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        value_col (str): Column to standardize.
+        group_col (str): Grouping column.
+        out_col (str, optional): Name of output z-score column.
+
+    Returns:
+        pd.DataFrame: Copy of df with an added z-score column.
+    """
+    df_out = df.copy()
+
+    df_out[out_col] = (
+        df_out
+        .groupby(group_col)[value_col]
+        .transform(lambda x: (x - x.mean()) / x.std(ddof=0))
+    )
+
+    return df_out
+

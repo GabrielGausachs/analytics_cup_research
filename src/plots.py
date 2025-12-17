@@ -5,6 +5,7 @@ from highlight_text import fig_text
 import io
 import numpy as np
 from PIL import Image
+import seaborn as sns
 
 font_normal = FontManager('https://raw.githubusercontent.com/googlefonts/roboto/main/'
                           'src/hinted/Roboto-Regular.ttf')
@@ -44,7 +45,7 @@ def plot_total_and_untargeted_per90(
     competition: str = "Australian A-League",
     total_matches: int = 10,
     title: str = "Off-Ball runs per 90 min by RunType"
-    ):
+    ) -> None:
     """
     Plots horizontal bars of total off-ball events per 90 min per subtype,
     overlaying the total of untargeted events with green bars with black edges.
@@ -189,7 +190,7 @@ def subtype_phase_bubble_plot(
     season: str = "2024/2025",
     competition: str = "Australian A-League",
     total_matches: int = 10,
-    title: str = "% Off-ball runs by RunType and Phase"):
+    title: str = "% Off-ball runs by RunType and Phase") -> None:
     """
     Plots off-ball runs per subtype per phase as a bubble plot. Adds insights text on the right of the figure.
 
@@ -808,7 +809,7 @@ def plot_scatter_ddc_distance(
     competition: str = "Australian A-League",
     total_matches: int = 10,
     min_matches: int = 2,
-    min_avg_minutes_played: int = 40):
+    min_avg_minutes_played: int = 40) -> None:
     """
     Plots a scatter plot of Defensive Density Change per 90 min vs Distance tip per 90 min.
 
@@ -1047,8 +1048,171 @@ def plot_scatter_ddc_distance(
     plt.tight_layout()
     plt.show()
 
+def plot_violin_xthreat(
+    df_xthreat_zscore: pd.DataFrame,
+    season: str = "2024/2025",
+    competition: str = "Australian A-League",
+    total_matches: int = 10,
+    min_matches: int = 2,
+    min_avg_minutes_played: int = 40) -> None:
+    """
+    Plots a violin plot of standardized xThreat per 90 min by pitch third.
+
+    Args:
+        df_xthreat_zscore (pd.DataFrame): DataFrame with columns:
+            - "third_end": pitch third where the run ended
+            - "xthreat_z": z-score of xThreat per 90 within that third
+            - "total_runs": total number of runs ending in that third
+        season (str): Season name for annotation.
+        competition (str): Competition name for annotation.
+        total_matches (int): Number of matches for annotation.
+        min_matches (int): Minimum number of matches played for annotation.
+        min_avg_minutes_played (int): Minimum average minutes played for annotation.
+    """
+
+    # filter data for middle and attacking thirds only
+    df_xthreat_zscore = df_xthreat_zscore.copy()
+    df_xthreat_zscore = df_xthreat_zscore[df_xthreat_zscore["third_end"].isin(["middle_third", "attacking_third"])]
+
+    # Create figure with two axes: left for scatter, right for text
+    fig, (ax_plot, ax_text) = plt.subplots(
+        1, 2, 
+        figsize=(12, 6),
+        gridspec_kw={"width_ratios": [3, 1]}  # 3:1 ratio
+    )
+
+    # ----------------------------
+    # Left axis: violin plot
+    # ----------------------------
+    
+    # Violin (distribution)
+    sns.violinplot(
+        data=df_xthreat_zscore,
+        y="third_end",
+        x="z_score",
+        inner=None,
+        linewidth=2,
+        color="#00ff1e",
+        ax=ax_plot
+    )
+
+    # Scatter with size mapped to number of runs
+    sns.scatterplot(
+        data=df_xthreat_zscore,
+        y="third_end",
+        x="z_score",
+        size="total_runs",
+        sizes=(30, 250),          # controls min/max dot size
+        alpha=1,
+        color="#008F15",
+        legend=False,
+        ax=ax_plot
+    )
+
+    ax_plot.set_xlabel("xThreat per 90 (z-score within third)")
+    ax_plot.set_ylabel("")  # empty label
+    ax_plot.set_title("Standardised xThreat per 90 by pitch third\n(point size = number of runs)")
+
+    # ----------------------------
+    # Right axis: text
+    # ----------------------------
+
+    ax_text.axis('off')  # no axes
+    ax_text.axvline(x=0, color='black', linewidth=1)  # vertical separator
+
+    # Starting y position (top)
+    y_start = 0.95  
+    line_spacing = 0.08
+
+    # Line 1: title
+    ax_text.text(
+        0.05, y_start,
+        "INSIGHTS",
+        va="top",
+        ha="left",
+        fontsize=18,
+        color='black',
+        transform=ax_text.transAxes
+    )
 
 
+    # Line 2: main insight
+    main_text = "This plot reveals midfielders whose off-ball runs turn movement into measurable threat, " \
+    "helping to identify the most impactful contributors in each third."
+
+    ax_text.text(
+        0.05, y_start - line_spacing,
+        main_text,
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        wrap=True,
+        transform=ax_text.transAxes
+    )
+
+    # Starting y position at the bottom
+    y_bottom = 0.02
+    line_spacing = 0.03
+
+    # Line 1: Season
+    ax_text.text(
+        0.05, y_bottom + 5*line_spacing,
+        f"Season: {season}",
+        va="bottom",
+        ha="left",
+        fontsize=8,
+        transform=ax_text.transAxes
+    )
+
+    # Line 2: Competition
+    ax_text.text(
+        0.05, y_bottom + 4*line_spacing,
+        f"Competition: {competition}",
+        va="bottom",
+        ha="left",
+        fontsize=8, 
+        transform=ax_text.transAxes
+    )
+
+    # Line 3: Total matches
+    ax_text.text(
+        0.05, y_bottom + 3*line_spacing,
+        f"Total matches: {total_matches}",
+        va="bottom",
+        ha="left",
+        fontsize=8,
+        transform=ax_text.transAxes
+    )
+
+    # Line 4: Min matches
+    ax_text.text(
+        0.05, y_bottom + 2*line_spacing,
+        f"Minimum of {min_matches} matches and minimum {min_avg_minutes_played} avg minutes played",
+        va="bottom",
+        ha="left",
+        fontsize=8,
+        transform=ax_text.transAxes
+    )
+
+    # Line 5: Metric per90min explanation
+    ax_text.text(
+        0.05, y_bottom + line_spacing,
+        "Metrics are normalized per 90 minutes played.",
+        va="bottom",
+        ha="left",
+        fontsize=8,
+        transform=ax_text.transAxes
+    )
+    
+    sns.despine(left=True)
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+"""
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 def plot_voronoi(pitch, all_tracking, event):
@@ -1126,3 +1290,4 @@ def plot_voronoi(pitch, all_tracking, event):
     ax_end.legend(loc='upper right')
     ax_end.set_title("End frame")
     plt.show()
+"""
