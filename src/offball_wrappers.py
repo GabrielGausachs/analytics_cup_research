@@ -6,6 +6,7 @@ from .preprocessing import match_minutes_played, player_minutes_per_match, filte
 from typing import List, Optional, Dict, Any, Tuple
 from .aggregates import off_ball_event_agg, normalize_per90min
 from .helpers import entropy, z_score
+import numpy as np
 
 phase_order = [
         "build_up",
@@ -351,7 +352,7 @@ def obr_xthreat(
     min_avg_minutes_played: Optional[int] = 0) -> pd.DataFrame:
     """
     Computes xThreat contribution, total runs, xpass completion, and number of dangerous not difficult runs 
-    per 90 minutes for midfielders runs. Also provides per-third breakdowns.
+    per 90 minutes for midfielders runs. Also provides per-rungroup breakdowns.
 
     Args:
         dynamic_events_all (pd.DataFrame): Dynamic events DataFrame.
@@ -360,9 +361,9 @@ def obr_xthreat(
         min_avg_minutes_played (int, optional): Minimum average minutes played per match for a player to be included.
 
     Returns: 
-        tuple: (df_player, df_thirds)
+        tuple: (df_player, df_rungroups)
             - df_player (pd.DataFrame): DataFrame grouped by player.
-            - df_thirds (pd.DataFrame): DataFrame grouped by player and third.
+            - df_rungroups (pd.DataFrame): DataFrame grouped by player and run group.
 
     """
 
@@ -374,15 +375,24 @@ def obr_xthreat(
         min_avg_minutes_played
     )
 
-    # Filter by progression and direct type of runs
-    valid_subtypes = [
-        "behind", "support", "overlap", "underlap",
-        "cross_receiver", "run_ahead_of_the_ball"
-    ]
+    # Define run groups
+    progression_runs = [
+        "run_ahead_of_the_ball", "overlap", "underlap", "support"]
+
+    direct_runs = [
+        "cross_receiver", "behind"]
+
+    valid_subtypes = progression_runs + direct_runs
 
     p_d_runs = mid_obr_filtered[
-        mid_obr_filtered["event_subtype"].isin(valid_subtypes)
-    ].copy()
+        mid_obr_filtered["event_subtype"].isin(valid_subtypes)].copy()
+    
+    # Assign run group
+    p_d_runs["run_group"] = np.where(
+        p_d_runs["event_subtype"].isin(progression_runs),
+        "Progression",
+        "Direct"
+    )
 
     # Calculate total metrics per player
     df_player = (
@@ -401,9 +411,9 @@ def obr_xthreat(
             )
     )
 
-    # Calculate per-player per-third metrics
-    df_thirds = (
-        p_d_runs.groupby(["player_id", "third_end"], as_index=False)
+    # Calculate per-player per-rungroup metrics
+    df_rungroups = (
+        p_d_runs.groupby(["player_id", "run_group"], as_index=False)
         .agg(
             total_runs=("event_subtype", "count"),
             xthreat=("xthreat", "sum"),
@@ -425,7 +435,7 @@ def obr_xthreat(
         how="left"
     )
 
-    df_thirds = df_thirds.merge(
+    df_rungroups = df_rungroups.merge(
         eligible_players[["player_id", "total_minutes"]],
         on="player_id",
         how="left"
@@ -441,10 +451,26 @@ def obr_xthreat(
     ]
 
     for col in per90_cols:
-        df_thirds[f"{col}_per90"] = df_thirds[col] / df_thirds["total_minutes"] * 90
+        df_rungroups[f"{col}_per90"] = df_rungroups[col] / df_rungroups["total_minutes"] * 90
         df_player[f"{col}_per90"] = df_player[col] / df_player["total_minutes"] * 90
 
-    return df_player, df_thirds
+    # Add player_name to both dataframes from dynamic_events_all
+    player_names = (
+        dynamic_events_all[["player_id", "player_name"]]
+        .drop_duplicates()
+    )
+    df_player = df_player.merge(
+        player_names,
+        on="player_id",
+        how="left"
+    )
+    df_rungroups = df_rungroups.merge(
+        player_names,
+        on="player_id",
+        how="left"
+    )
+    
+    return df_player, df_rungroups
 
 # ------------------------------
 # High-level convenience plotting functions
@@ -576,7 +602,7 @@ def a_obr_per_subtype_per_player(
     else:
         raise ValueError("Please provide a list of player names to plot radar plots.")
     
-def a_xthreat_per_third(
+def a_xthreat_per_run_group(
     dynamic_events_all: pd.DataFrame,
     all_metadata: List[Dict[str, Any]],
     season: Optional[str] = "2024/2025",
@@ -586,7 +612,7 @@ def a_xthreat_per_third(
     min_avg_minutes_played: Optional[int] = 0
     ) -> None:
     """
-    Computes xThreat contribution per third for midfielders off-ball runs,
+    Computes xThreat contribution per run group for midfielders off-ball runs,
     calculates z-scores and plot the results.
 
     Args:
@@ -599,19 +625,19 @@ def a_xthreat_per_third(
         min_avg_minutes_played (Optional[int]): Minimum average minutes played per match for a player to be included.
     """
 
-    _ , df_thirds = obr_xthreat(
+    _ , df_rungroup = obr_xthreat(
         dynamic_events_all,
         all_metadata,
         min_matches,
         min_avg_minutes_played)
     
-    df_thirds = z_score(
-        df_thirds,
+    df_rungroup = z_score(
+        df_rungroup,
         value_col="xthreat_per90",
-        group_col="third_end")
+        group_col="run_group",)
     
     plot_violin_xthreat(
-        df_thirds,
+        df_rungroup,
         season=season,
         competition=competition,
         total_matches=total_matches,

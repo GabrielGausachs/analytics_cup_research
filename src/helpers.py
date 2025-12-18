@@ -120,3 +120,44 @@ def z_score(
 
     return df_out
 
+def annotate_above_below(
+    ax,
+    x: float,
+    y: float,
+    label: str,
+    direction: str,
+    x_offset: float = 0.15,
+    y_offset: float = 0.25) -> None:
+    """
+    Annotate a point with a small curved arrow.
+    
+    Args:
+        ax: Matplotlib axis to draw on.
+        x (float): x-coordinate of the point to annotate.
+        y (float): y-coordinate of the point to annotate.
+        label (str): Text label for the annotation.
+        direction (str): "above" or "below" to indicate arrow direction.
+        x_offset (float, optional): Horizontal offset for the annotation text.
+        y_offset (float, optional): Vertical offset for the annotation text.
+    """
+
+    dy = y_offset if direction == "above" else -y_offset
+
+    ax.annotate(
+        label,
+        xy=(x, y),
+        xytext=(x + x_offset, y + dy),
+        textcoords="data",
+        fontsize=9,
+        ha="left",
+        va="center",
+        arrowprops=dict(
+            arrowstyle="->",
+            lw=0.8,
+            color="black",
+            connectionstyle="arc3,rad=0.25"
+        ),
+        zorder=7
+    )
+
+

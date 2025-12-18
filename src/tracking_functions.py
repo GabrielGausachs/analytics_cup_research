@@ -48,6 +48,28 @@ def find_frame_start_end(row: pd.Series, all_tracking: List[TrackingDataset]) ->
 
     return start_frame, end_frame
 
+def get_frame_object(match_id: int, frame_id: int, all_tracking: List[TrackingDataset]) -> Any:
+    """
+    Get the frame object for a given match ID and frame ID.
+
+    Args:
+        match_id (int): The match ID.
+        frame_id (int): The frame ID.
+        all_tracking (list): List of tracking datasets for all matches.
+
+    Returns:
+        Any: The frame object if found, else None.
+    """
+    tracking_idx = tracking_index(all_tracking)
+
+    match_frames = tracking_idx.get(match_id)
+    if match_frames is None:
+        raise ValueError(f"Match {match_id} not found in tracking_index")
+
+    frame = match_frames.get(frame_id)
+
+    return frame
+
 def get_player_coordinates(frame: Any, player_id: int) -> Tuple[float, float]:
     """
     Get the (x, y) coordinates of a player in a given frame.

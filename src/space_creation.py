@@ -1,5 +1,5 @@
 from .preprocessing import filter_eligible_players, remove_outliers
-from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates, get_rest_players_coordinates
+from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates, get_rest_players_coordinates, get_frame_object
 from .helpers import get_voronoi_bounded
 import numpy as np
 from shapely.geometry import box
@@ -13,8 +13,9 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
     """
     Calculate space created during midfield off-ball runs using Voronoi diagrams. 
     It filters events by duration <= 5 seconds. Calculate the Voronoi area at the 
-    start location of the player that does the run in the start and end frame of the event, 
-    and computes the difference as space created. 
+    start location of the player that does the run in the start frame. Then, it calculates the Voronoi area
+    at multiple end frames (end frame +- 5 frames) at the same player location, taking the average area
+    as the end Voronoi area. The space created is the difference between the end and start Voronoi areas.
 
     Args:
         mid_obr (pd.DataFrame): DataFrame of midfield off-ball events.
@@ -72,24 +73,40 @@ def space_created(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) ->
         poly_start = get_voronoi_bounded(players_start, 0, pitch_bounds)
         area_start = poly_start.area if poly_start else np.nan
 
-        # Voronoi at end frame
-        players_end = []
-        players_end.append(player_coord)  # same location as start frame
+        # Get the voronoi area in +-5 frames from the end frame
+        ending_frames_ids = range(int(end_frame.frame_id) - 5, int(end_frame.frame_id) + 6)
+        ending_frames = []
+        for ef_id in ending_frames_ids:
+            ef = get_frame_object(int(row.match_id), ef_id, all_tracking)
+            if ef is not None:
+                ending_frames.append(ef)
+
+        area_end_sum = 0
+
+        for end_frame in ending_frames:
+            # Get player index + all positions
+            players_end = []
+            players_end.append(player_coord)  # same location as start frame
+            
+            # get all the opponents coordinates
+            players_end.extend(get_rest_players_coordinates(end_frame, row.player_id))
+
+            players_end = np.array(players_end)
+
+            # Voronoi at end frame
+            poly_end = get_voronoi_bounded(players_end, 0, pitch_bounds)
+            area_end = poly_end.area if poly_end else np.nan
+            area_end_sum += area_end
         
-        # get all the opponents coordinates
-        players_end.extend(get_rest_players_coordinates(end_frame, row.player_id))
-
-        players_end = np.array(players_end)
-
-        poly_end = get_voronoi_bounded(players_end, 0, pitch_bounds)
-        area_end = poly_end.area if poly_end else np.nan
+        avg_area_end = area_end_sum / len(ending_frames) if len(ending_frames) > 0 else np.nan
 
         # Store in DataFrame
         mid_obr.at[row.Index, 'voronoi_area_start'] = area_start
-        mid_obr.at[row.Index, 'voronoi_area_end'] = area_end
-        mid_obr.at[row.Index, 'space_created'] = area_end - area_start
+        mid_obr.at[row.Index, 'voronoi_area_end'] = avg_area_end
+        mid_obr.at[row.Index, 'space_created'] = avg_area_end - area_start
         mid_obr.at[row.Index, 'voronoi_poly_start'] = poly_start
         mid_obr.at[row.Index, 'voronoi_poly_end'] = poly_end
+        mid_obr.at[row.Index, 'end_frame_sc'] = ending_frames_ids[-1]
     
     print("Number of events after processing for space created:", len(mid_obr))
 
