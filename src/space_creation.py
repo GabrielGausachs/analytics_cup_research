@@ -1,5 +1,5 @@
 from .preprocessing import filter_eligible_players, remove_outliers
-from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates, get_rest_players_coordinates, get_frame_object
+from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates, get_rest_players_coordinates, get_frame_object, get_team_players_coordinates
 from .helpers import get_voronoi_bounded
 import numpy as np
 from shapely.geometry import box
@@ -182,3 +182,55 @@ def metric_sc(
     ) * 90
 
     return mid_obr_grouped, mid_obr_merged
+
+
+def plot_space_created(
+        event_row: pd.Series,
+        all_tracking: List[TrackingDataset]) -> None:
+    """
+    Docstring for plot_space_created
+    """
+
+    # Draw the pitch
+    pitch = Pitch(
+        pitch_type="skillcorner",
+        pitch_length=105,
+        pitch_width=68,
+        pitch_color="#001400",
+        line_color="white",
+        linewidth=1.5
+    )
+    fig, ax = pitch.grid(figheight=8, endnote_height=0, title_height=0)
+
+    first_frame = int(event_row.frame_start)
+    last_frame = int(event_row.end_frame_sc)
+
+    # Define team colors
+    team_colors = {
+    'team': "#1A78CF",   # blue
+    'opponent': "#D70232",   # red
+    'off_ball_runner': "#00FF00",  # green for the off-ball runner
+    'ball': "#FFD700",    # yellow for the ball
+    }
+
+    for frame_id in range(first_frame, last_frame + 1):
+        # Get frame object
+        frame = get_frame_object(int(event_row.match_id), frame_id, all_tracking)
+        if frame is None:
+            continue
+
+        # Get player coordinates at start frame
+        player_coord = get_player_coordinates(frame, event_row.player_id)
+        # Get all opponents coordinates
+        opponents_coords = get_opp_team_players_coordinates(frame, event_row.team_id)
+        # Get teammates coordinates
+        teammates_coords = get_team_players_coordinates(frame, event_row.team_id)
+        # Get ball coordinates
+        ball_coord = (frame.ball_coordinates.x, frame.ball_coordinates.y)
+
+        
+
+    
+
+
+    
