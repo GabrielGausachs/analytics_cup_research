@@ -6,6 +6,8 @@ from shapely.geometry import box
 from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
 from kloppy.domain import TrackingDataset
+from mplsoccer import Pitch
+from matplotlib.animation import FuncAnimation
 
 
 
@@ -183,15 +185,16 @@ def metric_sc(
 
     return mid_obr_grouped, mid_obr_merged
 
-
-def plot_space_created(
-        event_row: pd.Series,
-        all_tracking: List[TrackingDataset]) -> None:
+def animate_space_created(
+    event_row: pd.Series,
+    all_tracking: List[TrackingDataset],
+    interval: int = 100  # ms between frames
+    ) -> FuncAnimation:
     """
-    Docstring for plot_space_created
+    Animate off-ball run and surrounding players.
     """
 
-    # Draw the pitch
+    # --- Draw pitch once ---
     pitch = Pitch(
         pitch_type="skillcorner",
         pitch_length=105,
@@ -200,37 +203,65 @@ def plot_space_created(
         line_color="white",
         linewidth=1.5
     )
-    fig, ax = pitch.grid(figheight=8, endnote_height=0, title_height=0)
+    fig, ax = pitch.draw(figsize=(10, 6))
 
     first_frame = int(event_row.frame_start)
     last_frame = int(event_row.end_frame_sc)
+    frames = list(range(first_frame, last_frame + 1))
 
-    # Define team colors
+    # --- Team colors ---
     team_colors = {
-    'team': "#1A78CF",   # blue
-    'opponent': "#D70232",   # red
-    'off_ball_runner': "#00FF00",  # green for the off-ball runner
-    'ball': "#FFD700",    # yellow for the ball
+        "team": "#1A78CF",
+        "opponent": "#D70232",
+        "off_ball_runner": "#00FF00",
+        "ball": "#FFD700",
     }
 
-    for frame_id in range(first_frame, last_frame + 1):
-        # Get frame object
+    # --- Initialize empty scatter artists ---
+    runner_scatter = ax.scatter([], [], s=300, c=team_colors["off_ball_runner"],
+                                edgecolors="white", linewidths=2.5, zorder=10)
+
+    teammates_scatter = ax.scatter([], [], s=300, c=team_colors["team"],
+                                   edgecolors="white", linewidths=2.5, zorder=9)
+
+    opponents_scatter = ax.scatter([], [], s=300, c=team_colors["opponent"],
+                                   edgecolors="white", linewidths=2.5, zorder=9)
+
+    ball_scatter = ax.scatter([], [], s=150, c=team_colors["ball"],
+                              edgecolors="white", linewidths=2.5, zorder=11)
+
+    # --- Update function ---
+    def update(frame_id):
         frame = get_frame_object(int(event_row.match_id), frame_id, all_tracking)
         if frame is None:
-            continue
+            return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter
 
-        # Get player coordinates at start frame
-        player_coord = get_player_coordinates(frame, event_row.player_id)
-        # Get all opponents coordinates
-        opponents_coords = get_opp_team_players_coordinates(frame, event_row.team_id)
-        # Get teammates coordinates
-        teammates_coords = get_team_players_coordinates(frame, event_row.team_id)
-        # Get ball coordinates
-        ball_coord = (frame.ball_coordinates.x, frame.ball_coordinates.y)
+        # Player
+        runner = get_player_coordinates(frame, event_row.player_id)
+        runner_scatter.set_offsets([runner])
 
-        
+        # Teammates
+        mates = get_team_players_coordinates(frame, event_row.team_id)
+        teammates_scatter.set_offsets(np.array(mates) if mates else np.empty((0, 2)))
 
-    
+        # Opponents
+        opps = get_opp_team_players_coordinates(frame, event_row.team_id)
+        opponents_scatter.set_offsets(np.array(opps) if opps else np.empty((0, 2)))
 
+        # Ball
+        ball = (frame.ball_coordinates.x, frame.ball_coordinates.y)
+        ball_scatter.set_offsets([ball])
 
-    
+        return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter
+
+    # --- Create animation ---
+    anim = FuncAnimation(
+        fig,
+        update,
+        frames=frames,
+        interval=interval,
+        blit=True
+    )
+
+    return anim
+
