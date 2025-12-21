@@ -47,7 +47,7 @@ def obr_radar_all(
         min_avg_minutes_played=min_avg_minutes_played)
 
     # Get space created metrics for midfielders performing off-ball runs
-    _,df_sc = metric_sc(
+    df_sc,_ = metric_sc(
         dynamic_events_all,
         all_tracking,
         all_metadata,
@@ -57,22 +57,67 @@ def obr_radar_all(
     # Distance covered metrics for midfielders performing off-ball runs
     df_physical = get_physical_data_processed(data_path)
 
-    # Merge all metrics into a single DataFrame by player_id
-    mid_obr_grouped = df_xthreat.merge(
-        df_ddc,
-        on="player_id",
-        how="outer"
-    ).merge(
-        df_sc,
-        on="player_id",
-        how="outer"
-    ).merge(
-        df_physical,
-        on="player_id",
-        how="outer"
+
+    # Prepare the data for the radar plot
+    df_xthreat = df_xthreat.reset_index()
+    df_ddc = df_ddc.reset_index()
+    df_sc = df_sc.reset_index()
+    df_physical = df_physical.reset_index()
+
+    ddc_bu = (
+        df_ddc
+        .query("rungroup == 'Build Up'")
+        [["player_id", "def_density_change_per90min"]]
+        .rename(columns={"def_density_change_per90min": "ddc_build_up"})
     )
 
-    return mid_obr_grouped
+    ddc_prog = (
+        df_ddc
+        .query("rungroup == 'Progression'")
+        [["player_id", "def_density_change_per90min"]]
+        .rename(columns={"def_density_change_per90min": "ddc_progression"})
+    )
+
+    xt_prog = (
+        df_xthreat
+        .query("run_group == 'Progression'")
+        [["player_id", "xthreat_per90"]]
+        .rename(columns={"xthreat_per90": "xT_progression"})
+    )
+
+    xt_direct = (
+        df_xthreat
+        .query("run_group == 'Direct'")
+        [["player_id", "xthreat_per90"]]
+        .rename(columns={"xthreat_per90": "xT_direct"})
+    )
+
+    dist_poss = (
+        df_physical
+        [["player_id", "distance_tip_per90"]]
+        .rename(columns={"distance_tip_per90": "dist_poss_90"})
+    )
+
+    # Get all player_ids present in the other dataframes
+    players_to_keep = set(ddc_bu['player_id']) | set(ddc_prog['player_id']) | set(xt_prog['player_id']) | set(xt_direct['player_id']) | set(df_sc['player_id'])
+
+    # Filter df_physical
+    dist_poss_filtered = df_physical[df_physical['player_id'].isin(players_to_keep)][['player_id', 'distance_tip_per90']].rename(columns={'distance_tip_per90': 'dist_poss_90'})
+    
+    radar_df = (
+        ddc_bu
+        .merge(df_sc, on="player_id", how="outer", validate="one_to_one")
+        .merge(ddc_prog, on="player_id", how="outer", validate="one_to_one")
+        .merge(xt_prog, on="player_id", how="outer", validate="one_to_one")
+        .merge(xt_direct, on="player_id", how="outer", validate="one_to_one")
+        .merge(dist_poss_filtered, on="player_id", how="outer", validate="one_to_one")
+    )
+
+    # also add player names from df_xthreat
+    player_names = df_xthreat[['player_id', 'player_name']].drop_duplicates()
+    radar_df = radar_df.merge(player_names, on='player_id', how='left', validate='one_to_one')
+
+    return radar_df
 
 
 

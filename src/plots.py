@@ -40,6 +40,15 @@ phase_names_map = {
     "set_play": "Set Play"
 }
 
+metrics_names_map = {
+    "ddc_build_up": "DDC_b",
+    "space_created_per90min": "Space Created",
+    "ddc_progression": "DDC_p",
+    "xT_progression": "xt_prog",
+    "xT_direct": "xt_direct",
+    "dist_poss_90": "dist_poss_90"
+}
+
 def plot_total_and_untargeted_per90(
     agg_df: pd.DataFrame,
     season: str = "2024/2025",
@@ -379,7 +388,7 @@ def radar_plot(
 
     params = [subtype_names_map[subtype] for subtype in df_percentile.columns]
     slice_colors = ["#1A78CF"] * 2 + ["#FF9300"] * 4 + ["#D70232"] * 4
-    text_colors = ["#000000"] * 5 + ["#F2F2F2"] * 5
+    text_colors = ["#000000"] * 10
 
     baker = PyPizza(
     params=params,                  # list of parameters
@@ -425,13 +434,6 @@ def radar_plot(
             highlight_textprops=[{"color": "#000000"}],
             ha="center", fontproperties=font_bold.prop, color="#000000"
     )
-    
-    # add image if badges_dict is provided
-    #if badges_dict and team1 in badges_dict:
-    #    img = Image.open(badges_dict[team1])
-     #   ax_image = add_image(
-     #       img, fig, left=0.1, bottom=0.9, width=0.13, height=0.127
-     #   )   # these values might differ when you are plotting
 
     fig.patch.set_facecolor("white")    # Figure background
     ax.patch.set_facecolor("white")     # Axes background (if any)
@@ -1294,85 +1296,281 @@ def plot_violin_xthreat(
     plt.tight_layout()
     plt.show()
 
+def radar_plot_overall(
+    df_all: pd.DataFrame,
+    player_name: str
+    ) -> None:
+    """
+    Plots a radar chart for overall off-ball runs metrics.
 
+    Args:
+        df_all (pd.DataFrame): DataFrame with overall off-ball runs metrics per player normalized per 90 minutes.
+                                 Index: player_name, Columns: overall metrics
+        player_name (str): Player name to plot.
+    """
 
+    # Order of metrics
+    ordered_metrics = [
+        "ddc_build_up", "space_created_per90min", "ddc_progression",
+        "xT_progression", "xT_direct",
+        "dist_poss_90"
+    ]
 
-"""
-import matplotlib.pyplot as plt
-from mplsoccer import Pitch
-def plot_voronoi(pitch, all_tracking, event):
+    df_pivot = df_all.set_index('player_id')
+    df_percentile = df_pivot.rank(pct=True) * 100
+    df_percentile = df_percentile[ordered_metrics]
 
-    print(f"Plotting event ID: {event.event_id}, Player ID: {event.player_id}, Subtype: {event.event_subtype}")
+    # Extract values
+    values = df_percentile.loc[player_name].tolist()
+    values = [round(v, 1) for v in values]
 
-    # plot start frame
+    params = [metrics_names_map[metric] for metric in df_percentile.columns]
+    slice_colors = ["#D70232"] * 2 + ["#FF9300"] * 2 + ["#1A78CF"] * 1 + ["#008F15"] * 1
+    text_colors = ["#000000"] * 10
 
-    fig, ax_start = pitch.grid(figheight=8, endnote_height=0, title_height=0)
+    baker = PyPizza(
+    params=params,                  # list of parameters
+    straight_line_color="#F2F2F2",  # color for straight lines
+    straight_line_lw=1,             # linewidth for straight lines
+    last_circle_lw=1,               # linewidth of last circle
+    other_circle_lw=1,              # linewidth for other circles
+    other_circle_ls="-.",           # linestyle for other circles
+    inner_circle_size=8,            # size of inner circle
+    )
 
-    x, y = event.voronoi_poly_start.exterior.xy
-    ax_start.fill(x, y, color='blue', alpha=0.3, label='Start frame')
-
-    start_frame, end_frame = find_frame_start_end(event, all_tracking)
-    if start_frame is None or end_frame is None:
-        print("No tracking data available for this event.")
-        return
+    # plot pizza
+    fig, ax = baker.make_pizza(
+            values,              # list of values
+            figsize=(8, 8),          # adjust figure size
+            param_location=110,  # where the parameters will be added
+            slice_colors=slice_colors,       # color for individual slices
+            value_colors=text_colors,        # color for the value-text
+            value_bck_colors=slice_colors,   # color for the blank spaces
+            kwargs_slices=dict(
+                facecolor="cornflowerblue", edgecolor="black",
+                zorder=2, linewidth=1
+            ),                   # values to be used when plotting slices
+            kwargs_params=dict(
+                color="#000000", fontsize=10,
+                fontproperties=font_normal.prop, va="center"
+            ),                   # values to be used when adding parameter
+            kwargs_values=dict(
+            color="#000000", fontsize=10,
+            fontproperties=font_normal.prop, zorder=3,
+            bbox=dict(
+                edgecolor="#000000", facecolor="cornflowerblue",
+                boxstyle="round,pad=0.2", lw=1
+                )                   
+            )                   # values to be used when adding values            
+        )
     
-    # runner coordinates
-    player_coord = get_player_coordinates(start_frame, event.player_id)
+    # add title
+    fig_text(
+            0.515, 1,
+            f"<{player_name}> - Runs Profile",
+            size=15, fig=fig,
+            highlight_textprops=[{"color": "#000000"}],
+            ha="center", fontproperties=font_bold.prop, color="#000000"
+    )
 
-    # opponent coordinates
-    opp_coords = get_opp_team_players_coordinates(start_frame, event.team_id)
+    fig.patch.set_facecolor("white")    # Figure background
+    ax.patch.set_facecolor("white")     # Axes background (if any)
 
-    # team players coordinates
-    team_coords = get_team_players_coordinates(start_frame, event.team_id)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
+    buf.seek(0)
+    img = Image.open(buf)
+    plt.close(fig)  # close the figure to free memory
 
-    # plot opponents
-    for coord in opp_coords:
-        ax_start.scatter(coord[0], coord[1], color='red', s=50, zorder=5)  # Opponent locations
+    return img
+    
 
-    # plot team players
-    for coord in team_coords:
-        ax_start.scatter(coord[0], coord[1], color='green', s=50, zorder=5)  # Team player locations
+def plot_multiple_radar_plots_players_overall(
+    df_all: pd.DataFrame,
+    players_names: list,
+    season: str = "2024/2025",
+    competition: str = "Australian A-League",
+    total_matches: int = 10,
+    min_matches: int = 2,
+    min_avg_minutes_played: int = 40
+    ) -> None:
+    """
+    Creates a single figure with multiple radar plots next to each other and an insight panel on the right.
 
-     # plot runner
-    ax_start.scatter(player_coord[0], player_coord[1], color='yellow', s=50, zorder=5, label='Runner')  # Runner location
+    Args:
+        df_all (pd.DataFrame): DataFrame with overall off-ball runs metrics per player normalized per 90 minutes.
+                                Index: player_name, Columns: overall metrics.
+        players_names (list): List of player names to plot.
+        season (str): Season name for annotation.
+        competition (str): Competition name for annotation.
+        total_matches (int): Number of matches for annotation.
+        min_matches (int): Minimum number of matches played for annotation.
+        min_avg_minutes_played (int): Minimum average minutes played for annotation.
+    """
+
+    # ----------------------------
+    # Left axes: radar plots
+    # ----------------------------
+
+    # Check if the players exist in the DataFrame
+    missing_players = [player for player in players_names if player not in df_all["player_name"].values]
+    if missing_players:
+        raise ValueError(f"The following players are not in the DataFrame index: {missing_players}")
+    
+    # Generate radar plot images
+    radar_images = [radar_plot_overall(df_all, player) for player in players_names]
+
+    n_players = len(players_names)
 
 
-    # plot ball
-    ball_coord = start_frame.ball_coordinates
-    ax_start.scatter(ball_coord.x, ball_coord.y, color='white', s=30, zorder=5, label='Ball')
+    radar_ratio = 0.85 / n_players
+    widths = [radar_ratio] * n_players + [0.15]
 
-    ax_start.legend(loc='upper right')
+    fig, axes = plt.subplots(
+        1, n_players + 1, 
+        figsize=(18, 8), 
+        gridspec_kw={"width_ratios": widths}
+    )
 
+    # Ensure axes is always a list
+    if isinstance(axes, np.ndarray):
+        axes = axes.flatten()
+    else:
+        axes = [axes]
+
+    # Plot radar images
+    for ax, img in zip(axes[:-1], radar_images):
+        ax.imshow(img)
+        ax.axis('off')
+
+
+    # ----------------------------
+    # Right axis: text
+    # ----------------------------
+
+    ax_text = axes[-1]
+    ax_text.axis('off')  # no axes
+    ax_text.axvline(x=0, color='black', linewidth=1)  # vertical separator
+
+    # Starting y position (top)
+    y_start = 0.95  
+    line_spacing = 0.08
+
+    # Line 1: title
+    ax_text.text(
+        0.05, y_start,
+        "INSIGHTS",
+        va="top",
+        ha="left",
+        fontsize=18,
+        color='black',
+        transform=ax_text.transAxes
+    )
+
+    ax_text.text(
+        0.05, y_start - line_spacing,
+        "Percentile Rank vs A-league players",
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        transform=ax_text.transAxes,
+        wrap=True
+    )
+
+    # Define categories and colors
+    categories = ["Direct", "Progression", "Build up", "Physical"]
+    colors = ["#1a78cf", "#ff9300", "#d70232", "#4caf50"]
+
+    rect_size = 0.05  # size of the square (width = height)
+    y_start = y_start - 2 * line_spacing  # adjust starting y position
+    line_spacing = 0.08  # space between lines
+
+    for i, (cat, color) in enumerate(zip(categories, colors)):
+        y = y_start - i * line_spacing
+
+        # Add square
+        ax_text.add_patch(
+            plt.Rectangle(
+                (0.05, y - rect_size/2),  # center square vertically on the line
+                rect_size, rect_size,
+                transform=ax_text.transAxes,
+                color=color
+            )
+        )
+
+        # Add text next to square
+        ax_text.text(
+            0.05 + rect_size + 0.03, y,
+            cat,
+            va="center",
+            ha="left",
+            fontsize=12,
+            fontproperties=font_bold.prop,
+            color="#000000",
+            transform=ax_text.transAxes
+        )
+
+    # Line 2: main insight
+    main_text = "Comparison of player off-ball run profiles across key dimensions: Direct, Progression, Build up, and Physical."
+
+    ax_text.text(
+        0.05, y_start - (len(categories)+0.08) * line_spacing,
+        main_text,
+        va="top",
+        ha="left",
+        fontsize=12,
+        color='black',
+        wrap=True,
+        transform=ax_text.transAxes
+    )
+
+    # Starting y position at the bottom
+    y_bottom = 0.02
+    line_spacing = 0.03
+
+    # Line 1: Season
+    ax_text.text(
+        0.05, y_bottom + 3*line_spacing,
+        f"Season: {season}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 2: Competition
+    ax_text.text(
+        0.05, y_bottom + 2*line_spacing,
+        f"Competition: {competition}",
+        va="bottom",
+        ha="left",
+        fontsize=10, 
+        transform=ax_text.transAxes
+    )
+
+    # Line 3: Total matches
+    ax_text.text(
+        0.05, y_bottom + line_spacing,
+        f"Total matches: {total_matches}",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    # Line 4: Min matches
+    ax_text.text(
+        0.05, y_bottom,
+        f"Minimum of {min_matches} matches and minimum {min_avg_minutes_played} avg minutes played",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    plt.tight_layout()
     plt.show()
 
-    # --- END FRAME ---
-    fig_end, ax_end = pitch.grid(figheight=8, endnote_height=0, title_height=0)
-
-    x_e, y_e = event.voronoi_poly_end.exterior.xy
-    ax_end.fill(x_e, y_e, color='green', alpha=0.3, label='End frame')
-
-    player_coord_end = get_player_coordinates(end_frame, event.player_id)
-    opp_coords_end = get_opp_team_players_coordinates(end_frame, event.team_id)
-    team_coords_end = get_team_players_coordinates(end_frame, event.team_id)
 
 
-    # plot opponents
-    for coord in opp_coords_end:
-        ax_end.scatter(coord[0], coord[1], color='red', s=50, zorder=5)  # Opponent locations
-    
-    # plot team players
-    for coord in team_coords_end:
-        ax_end.scatter(coord[0], coord[1], color='green', s=50, zorder=5)  # Team player locations
-    
-    # plot runner
-    ax_end.scatter(player_coord_end[0], player_coord_end[1], color='yellow', s=50, zorder=5, label='Runner')  # Runner location
-    
-    ax_end.scatter(player_coord[0], player_coord[1], color='black', s=50, zorder=5, label='Start position')
-
-    ball_end = end_frame.ball_coordinates
-    ax_end.scatter(ball_end.x, ball_end.y, color='white', s=30, zorder=5, label='Ball')
-
-    ax_end.legend(loc='upper right')
-    ax_end.set_title("End frame")
-    plt.show()
-"""

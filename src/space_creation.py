@@ -1,3 +1,4 @@
+from shapely import Polygon
 from .preprocessing import filter_eligible_players, remove_outliers
 from .tracking_functions import find_frame_start_end, get_player_coordinates, get_opp_team_players_coordinates, get_rest_players_coordinates, get_frame_object, get_team_players_coordinates
 from .helpers import get_voronoi_bounded
@@ -8,6 +9,10 @@ import pandas as pd
 from kloppy.domain import TrackingDataset
 from mplsoccer import Pitch
 from matplotlib.animation import FuncAnimation
+from descartes import PolygonPatch
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from IPython.display import HTML
 
 
 
@@ -217,18 +222,25 @@ def animate_space_created(
         "ball": "#FFD700",
     }
 
+    first_frame_object = get_frame_object(int(event_row.match_id), first_frame, all_tracking)
+    runner_starting_point = get_player_coordinates(first_frame_object, event_row.player_id)
+    
+
     # --- Initialize empty scatter artists ---
-    runner_scatter = ax.scatter([], [], s=300, c=team_colors["off_ball_runner"],
-                                edgecolors="white", linewidths=2.5, zorder=10)
+    runner_scatter = ax.scatter([], [], s=200, c=team_colors["off_ball_runner"],
+                                edgecolors="white", linewidths=1.5, zorder=9)
 
-    teammates_scatter = ax.scatter([], [], s=300, c=team_colors["team"],
-                                   edgecolors="white", linewidths=2.5, zorder=9)
+    teammates_scatter = ax.scatter([], [], s=200, c=team_colors["team"],
+                                   edgecolors="white", linewidths=1.5, zorder=9)
 
-    opponents_scatter = ax.scatter([], [], s=300, c=team_colors["opponent"],
-                                   edgecolors="white", linewidths=2.5, zorder=9)
+    opponents_scatter = ax.scatter([], [], s=200, c=team_colors["opponent"],
+                                   edgecolors="white", linewidths=1.5, zorder=9)
 
-    ball_scatter = ax.scatter([], [], s=150, c=team_colors["ball"],
-                              edgecolors="white", linewidths=2.5, zorder=11)
+    ball_scatter = ax.scatter([], [], s=100, c=team_colors["ball"],
+                              edgecolors="white", linewidths=1.5, zorder=9)
+
+    # --- Voronoi patch container ---
+    voronoi_patch = [None]  # mutable so we can replace it
 
     # --- Update function ---
     def update(frame_id):
@@ -252,7 +264,28 @@ def animate_space_created(
         ball = (frame.ball_coordinates.x, frame.ball_coordinates.y)
         ball_scatter.set_offsets([ball])
 
-        return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter
+        # --- Voronoi calculation ---
+        all_players = [runner_starting_point]
+        all_players.extend(mates if mates else [])
+        all_players.extend(opps if opps else [])
+        all_players = np.array(all_players)
+
+        pitch_bounds = box(-52.5, -34, 52.5, 34)  # SkillCorner pitch centered at (0,0)
+        voronoi_poly = get_voronoi_bounded(all_players, 0, pitch_bounds)
+
+        # Remove old Voronoi patch
+        if voronoi_patch[0] is not None:
+            voronoi_patch[0].remove()
+
+        # Draw new Voronoi polygon with fill
+        if voronoi_poly and not voronoi_poly.is_empty and isinstance(voronoi_poly, Polygon):
+            x, y = voronoi_poly.exterior.xy
+            patch = ax.fill(x, y, facecolor="yellow", alpha=0.3, edgecolor="yellow", lw=2, zorder=5)[0]
+            voronoi_patch[0] = patch
+        else:
+            voronoi_patch[0] = None
+            
+        return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter, voronoi_patch[0]
 
     # --- Create animation ---
     anim = FuncAnimation(
@@ -262,6 +295,54 @@ def animate_space_created(
         interval=interval,
         blit=True
     )
+
+    return anim
+
+
+def animate_run_by_event_id(
+    event_id: int,
+    df_runs: pd.DataFrame,
+    all_tracking: List[TrackingDataset],
+    interval: int = 100,
+    display: bool = True) -> FuncAnimation:
+    """
+    Animate a single off-ball run identified by event_id.
+
+    Args:
+        event_id (int): The event ID of the off-ball run to animate.
+        df_runs (pd.DataFrame): DataFrame containing off-ball run events.
+        all_tracking (list): List of tracking datasets for all matches.
+        interval (int, optional): Time in milliseconds between frames in the animation. Defaults to 100.
+        display (bool, optional): Whether to display the animation in a Jupyter notebook. Defaults to True.
+    
+    Returns:
+        FuncAnimation: The animation object.
+    """
+
+    # --- Select the run ---
+    run_row = df_runs.loc[df_runs["event_id"] == event_id]
+
+    if run_row.empty:
+        raise ValueError(f"No run found with event_id = {event_id}")
+
+    if len(run_row) > 1:
+        raise ValueError(f"Multiple runs found with event_id = {event_id}")
+
+    event_row = run_row.iloc[0]
+
+    # --- Create animation ---
+    anim = animate_space_created(
+        event_row=event_row,
+        all_tracking=all_tracking,
+        interval=interval
+    )
+
+     # --- Close the figure so it doesn't show a static last frame ---
+    anim._fig.tight_layout()   # optional: tidy layout
+    plt.close(anim._fig)
+    # --- Display in notebook ---
+    if display:
+        return HTML(anim.to_jshtml())
 
     return anim
 

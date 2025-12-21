@@ -53,6 +53,7 @@ def player_minutes_per_match(all_metadata: List[Dict[str, Any]]) -> pd.DataFrame
 
         for player in metadata.get("players", []):
             player_id = player.get("id")
+            team_id = player.get("team_id")
 
             if player_id is None:
                 continue
@@ -67,6 +68,7 @@ def player_minutes_per_match(all_metadata: List[Dict[str, Any]]) -> pd.DataFrame
             records.append({
                 "match_id": match_id,
                 "player_id": player_id,
+                "team_id": team_id,
                 "minutes_played": minutes
             })
 
