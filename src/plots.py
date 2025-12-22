@@ -41,12 +41,12 @@ phase_names_map = {
 }
 
 metrics_names_map = {
-    "ddc_build_up": "DDC_b",
+    "ddc_build_up": "DDC",
+    "ddc_progression": "DDC",
     "space_created_per90min": "Space Created",
-    "ddc_progression": "DDC_p",
-    "xT_progression": "xt_prog",
-    "xT_direct": "xt_direct",
-    "dist_poss_90": "dist_poss_90"
+    "xT_progression": "xT",
+    "xT_direct": "xT",
+    "dist_poss_90": "Distance tip"
 }
 
 def plot_total_and_untargeted_per90(
@@ -703,7 +703,7 @@ def plot_multiple_radar_plots_players(
 
     ax_text.text(
         0.05, y_start - line_spacing,
-        "Percentile Rank vs A-league players",
+        "Percentile Rank vs A-league midfielders",
         va="top",
         ha="left",
         fontsize=12,
@@ -1316,9 +1316,10 @@ def radar_plot_overall(
         "dist_poss_90"
     ]
 
-    df_pivot = df_all.set_index('player_id')
+    df_pivot = df_all.set_index('player_name')
     df_percentile = df_pivot.rank(pct=True) * 100
     df_percentile = df_percentile[ordered_metrics]
+    df_percentile = df_percentile.fillna(50)
 
     # Extract values
     values = df_percentile.loc[player_name].tolist()
@@ -1326,7 +1327,7 @@ def radar_plot_overall(
 
     params = [metrics_names_map[metric] for metric in df_percentile.columns]
     slice_colors = ["#D70232"] * 2 + ["#FF9300"] * 2 + ["#1A78CF"] * 1 + ["#008F15"] * 1
-    text_colors = ["#000000"] * 10
+    text_colors = ["#000000"] * 6
 
     baker = PyPizza(
     params=params,                  # list of parameters
@@ -1469,7 +1470,7 @@ def plot_multiple_radar_plots_players_overall(
 
     ax_text.text(
         0.05, y_start - line_spacing,
-        "Percentile Rank vs A-league players",
+        "Percentile Rank vs A-league midfielders",
         va="top",
         ha="left",
         fontsize=12,
@@ -1531,7 +1532,7 @@ def plot_multiple_radar_plots_players_overall(
 
     # Line 1: Season
     ax_text.text(
-        0.05, y_bottom + 3*line_spacing,
+        0.05, y_bottom + 4*line_spacing,
         f"Season: {season}",
         va="bottom",
         ha="left",
@@ -1541,7 +1542,7 @@ def plot_multiple_radar_plots_players_overall(
 
     # Line 2: Competition
     ax_text.text(
-        0.05, y_bottom + 2*line_spacing,
+        0.05, y_bottom + 3*line_spacing,
         f"Competition: {competition}",
         va="bottom",
         ha="left",
@@ -1551,7 +1552,7 @@ def plot_multiple_radar_plots_players_overall(
 
     # Line 3: Total matches
     ax_text.text(
-        0.05, y_bottom + line_spacing,
+        0.05, y_bottom + 2*line_spacing,
         f"Total matches: {total_matches}",
         va="bottom",
         ha="left",
@@ -1561,8 +1562,17 @@ def plot_multiple_radar_plots_players_overall(
 
     # Line 4: Min matches
     ax_text.text(
-        0.05, y_bottom,
+        0.05, y_bottom + line_spacing,
         f"Minimum of {min_matches} matches and minimum {min_avg_minutes_played} avg minutes played",
+        va="bottom",
+        ha="left",
+        fontsize=10,
+        transform=ax_text.transAxes
+    )
+
+    ax_text.text(
+        0.05, y_bottom,
+        f"Metrics are normalized per 90 minutes played.",
         va="bottom",
         ha="left",
         fontsize=10,
