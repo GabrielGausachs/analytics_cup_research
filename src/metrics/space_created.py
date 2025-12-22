@@ -5,7 +5,7 @@ import pandas as pd
 from kloppy.domain import TrackingDataset
 
 from ..utils.preprocessing import filter_eligible_players, remove_outliers
-from ..tracking_functions import find_frame_start_end, get_player_coordinates, get_rest_players_coordinates, get_frame_object
+from ..utils.tracking_functions import find_frame_start_end, get_player_coordinates, get_rest_players_coordinates, get_frame_object
 from ..utils.helpers import get_voronoi_bounded
 
 

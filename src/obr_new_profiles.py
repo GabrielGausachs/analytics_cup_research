@@ -1,14 +1,14 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 import pandas as pd
-from .utils.preprocessing import filter_eligible_players
-from .offball_wrappers import obr_xthreat
-from .density_change import metric_ddc
 from kloppy.domain import TrackingDataset
-from .space_creation import metric_sc
+from .metrics.xthreat import obr_xthreat
+from .metrics.def_density_change import metric_ddc
+from .metrics.space_created import metric_sc
 from .data_loading.physical_data import get_physical_data_processed
-from .plots import plot_multiple_radar_plots_players_overall
+from .plot_functions.radar_plots import plot_multiple_radar_plots_players_newprofiles
 
-def obr_radar_all(
+
+def obr_aggregate_metrics(
     all_metadata: List[Dict[str, Any]],
     all_tracking: List[TrackingDataset],
     dynamic_events_all: pd.DataFrame,
@@ -115,7 +115,7 @@ def obr_radar_all(
     return radar_df
 
 
-def a_obr_radar_all(
+def a_obr_new_profiles(
     dynamic_events_all: pd.DataFrame,
     all_metadata: List[Dict[str, Any]],
     all_tracking: List[TrackingDataset],
@@ -142,7 +142,7 @@ def a_obr_radar_all(
     if csv_path:
         radar_df = pd.read_csv(csv_path)
     else:
-        radar_df = obr_radar_all(
+        radar_df = obr_aggregate_metrics(
             all_metadata,
             all_tracking,
             dynamic_events_all,
@@ -151,4 +151,4 @@ def a_obr_radar_all(
             min_avg_minutes_played
         )
 
-    plot_multiple_radar_plots_players_overall(radar_df, players_names=player_names)
+    plot_multiple_radar_plots_players_newprofiles(radar_df, player_names=player_names)

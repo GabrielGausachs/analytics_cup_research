@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from kloppy.domain import TrackingDataset
 
 from ..utils.preprocessing import filter_eligible_players
-from ..tracking_functions import find_frame_start_end, get_player_coordinates
+from ..utils.tracking_functions import find_frame_start_end, get_player_coordinates
 from scipy.spatial.distance import cdist
 
 def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset]) -> pd.DataFrame:

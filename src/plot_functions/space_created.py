@@ -9,7 +9,7 @@ from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 from IPython.display import HTML
 
-from ..tracking_functions import get_player_coordinates, get_opp_team_players_coordinates, get_frame_object, get_team_players_coordinates
+from ..utils.tracking_functions import get_player_coordinates, get_opp_team_players_coordinates, get_frame_object, get_team_players_coordinates
 from ..utils.helpers import get_voronoi_bounded
 
 

@@ -497,7 +497,7 @@ def plot_multiple_radar_plots_players(
 
 
 
-def radar_plot_overall(
+def radar_plot_newprofiles(
     df_all: pd.DataFrame,
     player_name: str
     ) -> None:
@@ -587,7 +587,7 @@ def radar_plot_overall(
     return img
     
 
-def plot_multiple_radar_plots_players_overall(
+def plot_multiple_radar_plots_players_newprofiles(
     df_all: pd.DataFrame,
     players_names: list,
     season: str = "2024/2025",
@@ -620,7 +620,7 @@ def plot_multiple_radar_plots_players_overall(
         raise ValueError(f"The following players are not in the DataFrame index: {missing_players}")
     
     # Generate radar plot images
-    radar_images = [radar_plot_overall(df_all, player) for player in players_names]
+    radar_images = [radar_plot_newprofiles(df_all, player) for player in players_names]
 
     n_players = len(players_names)
 
