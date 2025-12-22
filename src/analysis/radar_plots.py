@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from kloppy.domain import TrackingDataset
 
 from ..plot_functions.radar_plots import plot_multiple_radar_plots_teams, plot_multiple_radar_plots_players
+from ..metrics.obr_wrappers import obr_per_subtype_per_team_per90min, obr_per_subtype_per_player_per90min
 
 def a_obr_per_subtype_per_team(
     all_tracking: List[TrackingDataset],

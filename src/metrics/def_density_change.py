@@ -22,8 +22,6 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
     mid_obr = mid_obr.copy()
     mid_obr["def_density_change"] = np.nan
 
-    print("Number of events to process for defensive density change:", len(mid_obr))
-
     for row in mid_obr.itertuples():
         # Find start and end frames
         start_frame, end_frame = find_frame_start_end(row, all_tracking)
@@ -76,8 +74,6 @@ def def_density_change(mid_obr: pd.DataFrame, all_tracking: List[TrackingDataset
 
         # Store results in mid_obr DataFrame
         mid_obr.at[row.Index, 'def_density_change'] = avg_distance_end - avg_distance_start
-    
-    print("Number of events after cleaning for defensive density change:", len(mid_obr))
         
     return mid_obr
 

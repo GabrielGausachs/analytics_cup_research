@@ -2,7 +2,7 @@ from typing import List, Optional
 import pandas as pd
 from kloppy.domain import TrackingDataset
 
-from src.offball_wrappers import pct_runs_subtype_phase, obr_per_subtype_per90min, obr_per_subtype_per_phase
+from ..metrics.obr_wrappers import pct_runs_subtype_phase, obr_per_subtype_per90min, obr_per_subtype_per_phase
 from ..plot_functions.exploratory import plot_total_and_untargeted_per90, subtype_phase_bubble_plot
 
 
