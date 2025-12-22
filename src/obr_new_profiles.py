@@ -122,7 +122,7 @@ def a_obr_new_profiles(
     data_path: str, 
     min_matches: Optional[int] = 0, 
     min_avg_minutes_played: Optional[int] = 0,
-    player_names: Optional[List[str]] = None,
+    players_names: Optional[List[str]] = None,
     csv_path: Optional[str] = None
     ) -> pd.DataFrame:
     """
@@ -135,7 +135,7 @@ def a_obr_new_profiles(
         data_path (str): The path to the data directory.
         min_matches (int, optional): Minimum number of matches a player must have played to be included.
         min_avg_minutes_played (int, optional): Minimum average minutes played per match for a player to be included.
-        player_names (list, optional): List of player names to highlight in the radar plots.
+        players_names (list, optional): List of player names to highlight in the radar plots.
         csv_path (str, optional): Path to a CSV file containing precomputed radar data. If provided, this will be used instead of computing from scratch. Defaults to None.
     """
 
@@ -151,4 +151,4 @@ def a_obr_new_profiles(
             min_avg_minutes_played
         )
 
-    plot_multiple_radar_plots_players_newprofiles(radar_df, player_names=player_names)
+    plot_multiple_radar_plots_players_newprofiles(radar_df, players_names=players_names)
