@@ -1,5 +1,5 @@
-from .load_data import load_physical_data
-from .preprocessing import preprocess_physical_data
+from .data_loading.load_data import load_physical_data
+from .utils.preprocessing import preprocess_physical_data
 import pandas as pd
 
 

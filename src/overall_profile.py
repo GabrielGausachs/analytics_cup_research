@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
-from .preprocessing import filter_eligible_players
+from .utils.preprocessing import filter_eligible_players
 from .offball_wrappers import obr_xthreat
 from .density_change import metric_ddc
 from kloppy.domain import TrackingDataset
