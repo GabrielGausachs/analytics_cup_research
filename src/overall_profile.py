@@ -5,7 +5,7 @@ from .offball_wrappers import obr_xthreat
 from .density_change import metric_ddc
 from kloppy.domain import TrackingDataset
 from .space_creation import metric_sc
-from .physical_data import get_physical_data_processed
+from .data_loading.physical_data import get_physical_data_processed
 from .plots import plot_multiple_radar_plots_players_overall
 
 def obr_radar_all(

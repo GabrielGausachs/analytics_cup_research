@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from kloppy.domain import TrackingDataset
 
 from ..metrics.def_density_change import ddc_merged_physical_data, metric_ddc
-from ..physical_data import get_physical_data_processed
+from ..data_loading.physical_data import get_physical_data_processed
 from ..plot_functions.def_density_change import plot_scatter_ddc_distance
 
 def def_density_change_analysis(
