@@ -50,9 +50,6 @@ def animate_space_created(
     
 
     # --- Initialize empty scatter artists ---
-    runner_scatter = ax.scatter([], [], s=200, c=team_colors["off_ball_runner"],
-                                edgecolors="white", linewidths=1.5, zorder=9)
-
     teammates_scatter = ax.scatter([], [], s=200, c=team_colors["team"],
                                    edgecolors="white", linewidths=1.5, zorder=9)
 
@@ -61,6 +58,9 @@ def animate_space_created(
 
     ball_scatter = ax.scatter([], [], s=100, c=team_colors["ball"],
                               edgecolors="white", linewidths=1.5, zorder=9)
+    
+    runner_scatter = ax.scatter([], [], s=200, c=team_colors["off_ball_runner"],
+                                edgecolors="white", linewidths=1.5, zorder=9)
 
     # --- Voronoi patch container ---
     voronoi_patch = [None]  # mutable so we can replace it
