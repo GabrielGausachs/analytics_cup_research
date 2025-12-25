@@ -33,6 +33,26 @@ def animate_space_created(
     )
     fig, ax = pitch.draw(figsize=(10, 6))
 
+    # --- Info text ---
+    info_text = (
+        f"Player: {event_row.player_name}\n"
+        f"Team: {event_row.team_shortname}\n"
+        f"Run type: {event_row.event_subtype}\n"
+        f"Avg space created: {event_row.space_created:.2f} m²"
+    )
+
+    info_box = ax.text(
+        -51, 33,
+        info_text,
+        fontsize=10,
+        color="white",
+        ha="left",
+        va="top",
+        zorder=20
+    )
+
+    info_box.set_animated(True)
+
     first_frame = int(event_row.frame_start)
     last_frame = int(event_row.end_frame_sc)
     frames = list(range(first_frame, last_frame + 1))
@@ -69,7 +89,7 @@ def animate_space_created(
     def update(frame_id):
         frame = get_frame_object(int(event_row.match_id), frame_id, all_tracking)
         if frame is None:
-            return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter
+            return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter, info_box
 
         # Player
         runner = get_player_coordinates(frame, event_row.player_id)
@@ -108,7 +128,7 @@ def animate_space_created(
         else:
             voronoi_patch[0] = None
             
-        return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter, voronoi_patch[0]
+        return runner_scatter, teammates_scatter, opponents_scatter, ball_scatter, voronoi_patch[0], info_box
 
     # --- Create animation ---
     anim = FuncAnimation(
