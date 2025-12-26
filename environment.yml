@@ -1,0 +1,20 @@
+name: hackathon_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - seaborn
+  - shapely
+  - scikit-learn
+  - jupyter
+  - pip
+  - pip:
+      - kloppy
+      - skillcorner
+      - mplsoccer
+      - highlight-text
+      - python-dotenv

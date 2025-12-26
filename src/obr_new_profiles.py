@@ -150,5 +150,7 @@ def a_obr_new_profiles(
             min_matches,
             min_avg_minutes_played
         )
+        
+        radar_df.to_csv(r"src\data\precomputed\new_overall_profile_df.csv", index=False)
 
     plot_multiple_radar_plots_players_newprofiles(radar_df, players_names=players_names)
