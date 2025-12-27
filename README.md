@@ -46,6 +46,6 @@ This project demonstrates that off-ball movement can be meaningfully measured. M
 
 On future improvements, the space created metric could be refined by incorporating player speed, direction, and positional uncertainty. Additionally, analyzing whether teammates occupy the created spaces and assessing their value via models like EPV would quantify real impact. Finally, clustering midfielders by these metrics could support scouting, talent identification, and player comparisons.
 
-Gabriel Gausachs
-SkillCorner × PySport Hackathon  
-2025
+**Gabriel Gausachs**
+**SkillCorner × PySport Hackathon**  
+**2025**
