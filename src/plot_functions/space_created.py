@@ -139,6 +139,8 @@ def animate_space_created(
         blit=True
     )
 
+    anim.save("off_ball_run_animation.gif", writer="pillow", fps=10)
+    
     return anim
 
 
